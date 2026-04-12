@@ -75,7 +75,7 @@ if (process.env.NODE_ENV !== 'test') {
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: '🚀 Renclo API is running',
+    message: '🚀 WardroWave API is running',
     database: 'Firebase Firestore',
     auth: 'Firebase Authentication',
     timestamp: new Date().toISOString(),
@@ -85,7 +85,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Welcome to Renclo Backend API',
+    message: 'Welcome to WardroWave Backend API',
     version: '2.0.0',
     stack: { auth: 'Firebase Auth', database: 'Firestore', server: 'Express.js' },
     endpoints: {
@@ -123,7 +123,7 @@ let server;
 if (require.main === module) {
   server = app.listen(PORT, () => {
     console.log('\n══════════════════════════════════════════════');
-    console.log('  🌊 Renclo Backend  —  v2.0.0');
+    console.log('  🌊 WardroWave Backend  —  v2.0.0');
     console.log('══════════════════════════════════════════════');
     console.log(`  🚀 Server:    http://localhost:${PORT}`);
     console.log(`  🔥 Database:  Firebase Firestore`);

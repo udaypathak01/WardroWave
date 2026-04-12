@@ -18,6 +18,9 @@ const syncProfile = asyncHandler(async (req, res) => {
     const { fullName, phone, photoUrl } = req.body;
 
     const userRef = db.collection(COLLECTIONS.USERS).doc(uid);
+    const cartsRef = db.collection(COLLECTIONS.CARTS).doc(uid);
+    const wishlistsRef = db.collection(COLLECTIONS.WISHLISTS).doc(uid);
+
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
@@ -38,12 +41,14 @@ const syncProfile = asyncHandler(async (req, res) => {
       };
       
       // Use transaction to ensure atomicity
+      // ✅ Fixed: Use transaction references instead of db.collection() inside transaction
       await db.runTransaction(async (transaction) => {
         transaction.set(userRef, profile);
-        transaction.set(db.collection(COLLECTIONS.CARTS).doc(uid), { uid, items: [], updatedAt: new Date().toISOString() });
-        transaction.set(db.collection(COLLECTIONS.WISHLISTS).doc(uid), { uid, productIds: [], updatedAt: new Date().toISOString() });
+        transaction.set(cartsRef, { uid, items: [], updatedAt: new Date().toISOString() });
+        transaction.set(wishlistsRef, { uid, productIds: [], updatedAt: new Date().toISOString() });
       });
 
+      console.log('[Auth] ✅ Profile created successfully for', uid);
       return res.status(201).json({ success: true, message: 'Profile created', data: { user: profile } });
     }
 
@@ -56,9 +61,10 @@ const syncProfile = asyncHandler(async (req, res) => {
     await userRef.update(updates);
     const updated = { ...userDoc.data(), ...updates };
 
+    console.log('[Auth] ✅ Profile synced for', uid);
     res.status(200).json({ success: true, message: 'Profile synced', data: { user: updated } });
   } catch (error) {
-    console.error('Sync profile error:', error);
+    console.error('[Auth] ❌ Sync profile error:', error.message || error);
     throw error;
   }
 });

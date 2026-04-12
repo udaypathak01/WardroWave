@@ -10,6 +10,7 @@ const protect = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('[Auth] ❌ No token provided - missing Authorization header');
       return res.status(401).json({
         success: false,
         message: 'Access token required. Please log in.',
@@ -17,9 +18,11 @@ const protect = async (req, res, next) => {
     }
 
     const idToken = authHeader.split('Bearer ')[1];
+    console.log(`[Auth] 🔍 Verifying token: ${idToken.substring(0, 20)}...`);
 
     // Verify the Firebase ID token
     const decoded = await getAuth().verifyIdToken(idToken);
+    console.log(`[Auth] ✅ Token verified for user: ${decoded.email} (${decoded.uid})`);
 
     // Attach decoded token (uid, email, name, etc.)
     req.firebaseUser = decoded;
@@ -29,6 +32,7 @@ const protect = async (req, res, next) => {
     const userDoc = await db.collection(COLLECTIONS.USERS).doc(decoded.uid).get();
 
     if (!userDoc.exists) {
+      console.log(`[Auth] 📝 First login - creating profile for ${decoded.uid}`);
       // First-time login: auto-create profile from Firebase token claims
       const newProfile = {
         uid: decoded.uid,
@@ -49,6 +53,7 @@ const protect = async (req, res, next) => {
     } else {
       const userData = userDoc.data();
       if (!userData.isActive) {
+        console.warn(`[Auth] ⚠️  Account deactivated for ${decoded.uid}`);
         return res.status(401).json({ success: false, message: 'Your account has been deactivated.' });
       }
       req.user = userData;
@@ -56,13 +61,24 @@ const protect = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error(`[Auth] ❌ Verification failed:`, error.code, error.message);
+    
     if (error.code === 'auth/id-token-expired') {
+      console.warn('[Auth] Token expired - user needs to refresh');
       return res.status(401).json({ success: false, message: 'Token expired. Please log in again.', code: 'TOKEN_EXPIRED' });
     }
-    if (error.code === 'auth/argument-error' || error.code === 'auth/id-token-revoked') {
+    if (error.code === 'auth/argument-error') {
+      console.error('[Auth] Token format error - possibly malformed token:', {
+        substring: error.message
+      });
+      return res.status(401).json({ success: false, message: 'Invalid token format. Please log in again.' });
+    }
+    if (error.code === 'auth/id-token-revoked') {
+      console.warn('[Auth] Token revoked - user needs to re-authenticate');
       return res.status(401).json({ success: false, message: 'Invalid token. Please log in again.' });
     }
-    console.error('Auth middleware error:', error.message);
+    
+    console.error('[Auth] Unexpected error:', error);
     next(error);
   }
 };

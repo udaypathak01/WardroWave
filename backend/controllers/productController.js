@@ -195,8 +195,8 @@ const createProduct = asyncHandler(async (req, res) => {
     totalRentals: 0,
     totalEarnings: 0,
     qrCode: `WW-${uuidv4().split('-')[0].toUpperCase()}`,
-    owner: req.user.uid,
-    ownerName: req.user.fullName,
+    owner: 'WardroWave',
+    ownerName: 'WardroWave',
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -216,7 +216,7 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (!doc.exists) return res.status(404).json({ success: false, message: 'Product not found' });
 
   const product = doc.data();
-  if (product.owner !== req.user.uid && req.user.role !== 'admin') {
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Not authorized to update this product' });
   }
 
@@ -237,7 +237,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
   if (!doc.exists) return res.status(404).json({ success: false, message: 'Product not found' });
 
   const product = doc.data();
-  if (product.owner !== req.user.uid && req.user.role !== 'admin') {
+  if (req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Not authorized' });
   }
 
@@ -290,32 +290,4 @@ const addReview = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, message: 'Review added', data: { rating: avgRating, reviewCount: reviews.length } });
 });
 
-// ─── GET /api/products/owner/me ───────────────────────────────────────────────
-
-const getMyProducts = asyncHandler(async (req, res) => {
-  const db = getDB();
-  const snap = await db.collection(COLLECTIONS.PRODUCTS)
-    .where('owner', '==', req.user.uid)
-    .get();
-
-  const products = snap.docs.map(docToObj)
-    .filter(p => p.isActive === true)
-    .sort((a, b) => {
-       const da = new Date(a.createdAt || 0).getTime();
-       const dbTime = new Date(b.createdAt || 0).getTime();
-       return dbTime - da;
-    });
-
-  const stats = {
-    totalItems: products.length,
-    totalRentals: products.reduce((s, p) => s + (p.totalRentals || 0), 0),
-    totalEarnings: products.reduce((s, p) => s + (p.totalEarnings || 0), 0),
-    avgRating: products.length
-      ? Math.round((products.reduce((s, p) => s + (p.rating || 0), 0) / products.length) * 10) / 10
-      : 0,
-  };
-
-  res.status(200).json({ success: true, data: { products, stats } });
-});
-
-module.exports = { getProducts, getFeaturedProducts, getCategories, getProductById, createProduct, updateProduct, deleteProduct, addReview, getMyProducts };
+module.exports = { getProducts, getFeaturedProducts, getCategories, getProductById, createProduct, updateProduct, deleteProduct, addReview };

@@ -1,5 +1,5 @@
 /**
- * Renclo - Firebase Firestore Seed Script
+ * WardroWave - Firebase Firestore Seed Script
  * Usage: node scripts/seed.js
  * Seeds products collection with initial data from the frontend's productsData.js catalog
  */
@@ -66,7 +66,7 @@ const seed = async () => {
         stockQuantity: 1,
         isActive: true,
         owner: null,
-        ownerName: 'Renclo',
+        ownerName: 'WardroWave',
         qrCode: `WW-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

@@ -1,0 +1,86 @@
+// Firestore Security Rules for WardroWave
+// Deploy these rules to Firebase Console → Firestore → Rules
+// Command: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ─── Helper Functions ──────────────────────────────────────────────────────
+    
+    // Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the document
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+    
+    // ─── Users Collection ──────────────────────────────────────────────────────
+    
+    // Users can read/write their own profile
+    // allow create: always (server creates on first login, client creates on signup)
+    match /users/{uid} {
+      allow read:    if isOwner(uid);
+      allow create:  if true;  // Server or client can create initial profile
+      allow update:  if isOwner(uid);
+      allow delete:  if isOwner(uid);
+      
+      // ─── User Subcollections ───────────────────────────────────────────────
+      
+      // Virtual Closet: users can upload and manage their own looks
+      match /virtual_closet/{document=**} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+      
+      // Addresses subcollection
+      match /addresses/{document=**} {
+        allow read:   if isOwner(uid);
+        allow create: if isOwner(uid);
+        allow update: if isOwner(uid);
+        allow delete: if isOwner(uid);
+      }
+    }
+    
+    // ─── Products Collection (Public Read) ─────────────────────────────────────
+    
+    match /products/{document=**} {
+      allow read: if isAuth();
+    }
+    
+    // ─── Orders Collection ────────────────────────────────────────────────────
+    
+    match /orders/{uid}/{document=**} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid);
+    }
+    
+    // ─── Carts Collection ──────────────────────────────────────────────────────
+    
+    match /carts/{uid} {
+      allow read:   if isOwner(uid);
+      allow create: if true;  // Allow server/client to create initial cart
+      allow write:  if isOwner(uid);
+    }
+    
+    // ─── Wishlists Collection ──────────────────────────────────────────────────
+    
+    match /wishlists/{uid} {
+      allow read:   if isOwner(uid);
+      allow create: if true;  // Allow server/client to create initial wishlist
+      allow write:  if isOwner(uid);
+    }
+    
+    // ─── Reviews Collection ───────────────────────────────────────────────────
+    
+    match /reviews/{document=**} {
+      allow read: if isAuth();
+    }
+  }
+}

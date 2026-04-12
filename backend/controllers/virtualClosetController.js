@@ -37,7 +37,7 @@ const uploadLook = asyncHandler(async (req, res) => {
     const cloudinaryResult = await uploadToCloudinary(
       req.file.buffer,
       req.file.originalname,
-      'renclo/virtual-closet'
+      'wardrowave/virtual-closet'
     );
     console.log(`✅ Cloudinary upload complete:`, cloudinaryResult.public_id);
 

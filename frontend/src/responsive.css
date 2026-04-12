@@ -1,0 +1,887 @@
+/* ═══════════════════════════════════════════════════════════════
+   WardroWave — responsive.css
+   Mobile-first breakpoints for every home-page component.
+   Import this file AFTER index.css in main.jsx / App.jsx.
+
+   Breakpoints used:
+     xs  : ≤ 340px   (tiny phone)
+     sm  : 341 – 480px (small phone)
+     md  : 481 – 767px (large phone / small tablet)
+     lg  : 768 – 1023px (tablet)
+     xl  : ≥ 1024px  (desktop)
+   ═══════════════════════════════════════════════════════════════ */
+
+
+/* ─────────────────────────────────────────────────────────────
+   0. GLOBAL — safe defaults for ALL screens
+   ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { overflow-x: hidden; }
+body { overflow-x: hidden; }
+
+img, video, iframe {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Prevent iOS double-tap zoom on buttons / links */
+button, a { touch-action: manipulation; }
+
+/* Container fluid reset */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   1. HEADER
+   ───────────────────────────────────────────────────────────── */
+
+/* ── xs (≤340px) ── */
+@media (max-width: 340px) {
+  header nav {
+    padding: 10px 12px !important;
+  }
+
+  /* Logo word hidden on tiny screens */
+  header .logo-text {
+    display: none;
+  }
+
+  /* Tight icon spacing */
+  header .icon-group {
+    gap: 6px !important;
+  }
+
+  /* Mobile menu */
+  header .mobile-menu-panel {
+    padding: 12px !important;
+  }
+}
+
+/* ── sm (341–480px) ── */
+@media (min-width: 341px) and (max-width: 480px) {
+  header nav {
+    padding: 12px 14px !important;
+  }
+}
+
+/* ── md (481–767px) — still mobile view ── */
+@media (max-width: 767px) {
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    /* Ensure it never overflows horizontally */
+    max-width: 100vw;
+  }
+
+  /* Cart / wishlist badge size */
+  header span[class*="rounded-full"][class*="w-5"] {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   2. HERO SECTION
+   ───────────────────────────────────────────────────────────── */
+
+/* ── xs (≤340px) ── */
+@media (max-width: 340px) {
+  .hero-section,
+  section.hero {
+    min-height: auto !important;
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .hero-title {
+    font-size: 1.75rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .hero-desc {
+    font-size: 0.8rem !important;
+  }
+
+  .hero-btn-group {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .hero-btn-group button,
+  .hero-btn-group a {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ── sm/md (≤767px) ── */
+@media (max-width: 767px) {
+  /* Full-screen hero without needing the side image */
+  section[class*="min-h"][class*="flex-items-center"] {
+    min-height: calc(100svh - 64px) !important;
+  }
+
+  /* Floating price badge — reposition for mobile */
+  .float-badge {
+    left: 12px !important;
+    bottom: 16px !important;
+    padding: 10px 14px !important;
+  }
+
+  .float-badge p:last-child {
+    font-size: 0.65rem !important;
+  }
+
+  /* Particle count is reduced in JS; hide any remaining large particles */
+  .particle {
+    max-width: 6px !important;
+    max-height: 6px !important;
+  }
+
+  /* Hero content — center on mobile */
+  .hero-content {
+    text-align: center !important;
+  }
+
+  /* Hero badge */
+  .hero-badge {
+    font-size: 0.7rem !important;
+    padding: 6px 12px !important;
+  }
+}
+
+/* ── lg+ (≥768px) ── */
+@media (min-width: 768px) {
+  /* Restore left-align on desktop */
+  .hero-content {
+    text-align: left !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   3. FEATURED PRODUCTS
+   ───────────────────────────────────────────────────────────── */
+
+/* Mobile 2-column grid — already defined in index.css, extended here */
+
+/* ── xs (≤340px) ── */
+@media (max-width: 340px) {
+  .fp-mobile-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .fp-mobile-card {
+    border-radius: 12px !important;
+  }
+
+  .fp-mobile-name {
+    font-size: 10px !important;
+  }
+
+  .fp-mobile-price {
+    font-size: 12px !important;
+  }
+
+  .fp-save-badge {
+    font-size: 7px !important;
+    padding: 2px 5px !important;
+  }
+}
+
+/* ── sm (341–480px) ── */
+@media (min-width: 341px) and (max-width: 480px) {
+  .fp-mobile-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+}
+
+/* ── md (481–767px) ── */
+@media (min-width: 481px) and (max-width: 767px) {
+  .fp-mobile-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+
+/* Section header row: stack on tiny screens */
+@media (max-width: 480px) {
+  .fp-section-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   4. CATEGORY SECTION
+   ───────────────────────────────────────────────────────────── */
+
+/* Mobile: stack all category cards vertically with fixed height */
+@media (max-width: 767px) {
+  /* Override lg:col-span-* so all cards go full width */
+  .category-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .category-card {
+    width: 100% !important;
+    height: 190px !important;
+    border-radius: 20px !important;
+  }
+
+  /* Section title */
+  .category-section-title {
+    font-size: 1.6rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Section intro text */
+  .category-section-desc {
+    font-size: 0.85rem !important;
+  }
+
+  /* Reduce top/bottom padding */
+  .category-section {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+
+  /* Fade-in header: compact margin */
+  .category-section .text-center {
+    margin-bottom: 1.25rem !important;
+  }
+
+  /* Overlay text */
+  .category-card h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .category-card p {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  .category-card {
+    height: 150px !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* ── md (481–767px) — 2-col layout ── */
+@media (min-width: 481px) and (max-width: 767px) {
+  .category-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* Menswear spans full width in 2-col */
+  .category-card-full {
+    grid-column: span 2 !important;
+  }
+
+  .category-card {
+    height: 200px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   5. AI STYLIST SECTION
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .ai-stylist-section {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+
+  /* Badge */
+  .ai-stylist-badge {
+    font-size: 0.7rem !important;
+    padding: 6px 12px !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Heading */
+  .ai-stylist-heading {
+    font-size: 2rem !important;
+    margin-bottom: 0.75rem !important;
+    line-height: 1.15 !important;
+  }
+
+  /* Description */
+  .ai-stylist-desc {
+    font-size: 0.85rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  /* Feature list items: tighter spacing */
+  .ai-stylist-feature {
+    gap: 10px !important;
+  }
+
+  .ai-stylist-feature-icon {
+    padding: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .ai-stylist-feature h4 {
+    font-size: 0.9rem !important;
+  }
+
+  .ai-stylist-feature p {
+    font-size: 0.78rem !important;
+  }
+
+  /* CTA button */
+  .ai-stylist-cta {
+    width: 100% !important;
+    justify-content: center !important;
+    margin-top: 1.5rem !important;
+    padding: 14px 20px !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Dashboard mockup: full-width, shorter */
+  .ai-stylist-mockup {
+    border-radius: 24px !important;
+  }
+
+  .ai-stylist-mockup-img {
+    height: 180px !important;
+  }
+
+  .ai-stylist-mockup-body {
+    padding: 16px !important;
+  }
+
+  /* Floating elements — hide on small mobile */
+  .ai-stylist-float-1,
+  .ai-stylist-float-2 {
+    display: none !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  .ai-stylist-heading {
+    font-size: 1.6rem !important;
+  }
+
+  .ai-stylist-mockup-img {
+    height: 140px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   6. AI TRY-ON SECTION
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .tryon-section {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+
+  /* Heading */
+  .tryon-heading {
+    font-size: 2rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .tryon-subtext {
+    font-size: 0.82rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  /* Upload card — more compact */
+  .tryon-upload-card {
+    padding: 16px !important;
+    border-radius: 20px !important;
+  }
+
+  .tryon-step-title {
+    font-size: 1rem !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* Occasion pills — wrap and smaller */
+  .tryon-occasions {
+    gap: 6px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .tryon-occasion-btn {
+    font-size: 0.7rem !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Upload zone — shorter height */
+  .tryon-drop-zone {
+    height: 140px !important;
+    border-radius: 14px !important;
+  }
+
+  .tryon-drop-zone .upload-icon-wrap {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .tryon-drop-zone .upload-icon-wrap svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .tryon-drop-text-primary {
+    font-size: 0.9rem !important;
+  }
+
+  .tryon-drop-text-secondary {
+    font-size: 0.72rem !important;
+  }
+
+  /* AI result image panel — compact aspect ratio */
+  .tryon-result-panel {
+    border-radius: 20px !important;
+    /* aspect ratio handled inline; reduce height via max-height */
+    max-height: 340px !important;
+  }
+
+  /* Result overlay bottom content */
+  .tryon-result-content {
+    padding: 14px !important;
+    padding-top: 80px !important;
+  }
+
+  .tryon-result-title {
+    font-size: 1.2rem !important;
+  }
+
+  .tryon-result-subtitle {
+    font-size: 0.78rem !important;
+    margin-bottom: 10px !important;
+  }
+
+  .tryon-result-actions {
+    gap: 8px !important;
+  }
+
+  .tryon-result-rent-btn {
+    font-size: 0.8rem !important;
+    padding: 10px 12px !important;
+  }
+
+  .tryon-result-arrow-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Animated rings — hide on mobile for perf */
+  .tryon-ring-outer,
+  .tryon-ring-inner {
+    display: none !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  .tryon-heading {
+    font-size: 1.7rem !important;
+  }
+
+  .tryon-drop-zone {
+    height: 110px !important;
+  }
+
+  .tryon-result-panel {
+    max-height: 280px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   7. NEWSLETTER SECTION
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .newsletter-section {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  /* Inner card */
+  .newsletter-card {
+    padding: 24px 18px !important;
+    border-radius: 24px !important;
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 20px !important;
+  }
+
+  /* Heading */
+  .newsletter-heading {
+    font-size: 1.5rem !important;
+    margin-bottom: 8px !important;
+    line-height: 1.2 !important;
+  }
+
+  .newsletter-subtext {
+    font-size: 0.8rem !important;
+  }
+
+  /* VIP badge */
+  .newsletter-badge {
+    font-size: 0.7rem !important;
+    padding: 5px 10px !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* Form: stack vertically */
+  .newsletter-form-inner {
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .newsletter-input {
+    width: 100% !important;
+    font-size: 14px !important;
+    padding: 12px 16px !important;
+  }
+
+  .newsletter-submit-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 12px 16px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .newsletter-fine-print {
+    font-size: 0.7rem !important;
+    margin-top: 10px !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  .newsletter-card {
+    padding: 18px 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .newsletter-heading {
+    font-size: 1.25rem !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   8. TESTIMONIALS SECTION
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .testimonials-section {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+
+  /* Section heading cluster */
+  .testimonials-header {
+    margin-bottom: 1.5rem !important;
+  }
+
+  .testimonials-title {
+    font-size: 2rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .testimonials-desc {
+    font-size: 0.82rem !important;
+  }
+
+  /* 1-col grid on mobile */
+  .testimonials-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Each card */
+  .testimonial-card {
+    padding: 20px !important;
+    border-radius: 20px !important;
+    /* Disable hover lift (touch not hover) */
+    transform: none !important;
+  }
+
+  .testimonial-quote-icon {
+    width: 48px !important;
+    height: 48px !important;
+    top: 12px !important;
+    right: 12px !important;
+  }
+
+  .testimonial-stars {
+    margin-bottom: 12px !important;
+    gap: 2px !important;
+  }
+
+  .testimonial-stars svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .testimonial-text {
+    font-size: 0.85rem !important;
+    margin-bottom: 16px !important;
+    line-height: 1.55 !important;
+  }
+
+  .testimonial-avatar {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .testimonial-name {
+    font-size: 0.9rem !important;
+  }
+
+  .testimonial-role {
+    font-size: 0.72rem !important;
+  }
+}
+
+/* ── md (481–767px) — 2-col testimonials ── */
+@media (min-width: 481px) and (max-width: 767px) {
+  .testimonials-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Third card spans full width */
+  .testimonial-card:last-child {
+    grid-column: span 2 !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  .testimonials-title {
+    font-size: 1.6rem !important;
+  }
+
+  .testimonial-card {
+    padding: 16px !important;
+    border-radius: 16px !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   9. FOOTER
+   ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  footer {
+    padding-top: 2rem !important;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Stack footer columns */
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .footer-logo-col {
+    text-align: center !important;
+  }
+
+  .footer-logo-col p {
+    font-size: 0.8rem !important;
+  }
+
+  /* Footer links: 2-col layout */
+  .footer-links-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important;
+  }
+
+  .footer-col-title {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .footer-col-link {
+    font-size: 0.75rem !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Bottom bar */
+  .footer-bottom {
+    flex-direction: column !important;
+    gap: 8px !important;
+    text-align: center !important;
+    font-size: 0.72rem !important;
+  }
+
+  .footer-social-icons {
+    justify-content: center !important;
+  }
+}
+
+/* ── xs ── */
+@media (max-width: 340px) {
+  footer {
+    padding-top: 1.5rem !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   10. GLOBAL TOUCH / INTERACTION HELPERS
+   ───────────────────────────────────────────────────────────── */
+
+/* Touch devices: increase hit targets */
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent iOS zoom on text inputs */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Smooth momentum scroll on iOS */
+.overflow-x-auto,
+.overflow-y-auto,
+[class*="overflow-x"],
+[class*="overflow-y"] {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide scrollbars visually while keeping scroll */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Safe-area padding for notched devices */
+@supports (padding: max(0px)) {
+  .safe-area-bottom {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  .safe-area-top {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   11. TABLET OVERRIDES (768px – 1023px)
+   ───────────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Hero: reduce side padding */
+  .hero-section {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
+
+  /* Category grid: keep 2-col for tablet */
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .category-card {
+    height: 240px !important;
+  }
+
+  /* Testimonials: 2-col */
+  .testimonials-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .testimonial-card:last-child {
+    grid-column: span 2 !important;
+    max-width: 480px !important;
+    margin: 0 auto !important;
+  }
+
+  /* Footer: 2-col */
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* AI Stylist floating elements: allow on tablet */
+  .ai-stylist-float-1,
+  .ai-stylist-float-2 {
+    display: flex !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   12. PRINT (graceful degradation)
+   ───────────────────────────────────────────────────────────── */
+
+@media print {
+  header,
+  footer,
+  .particle,
+  .float-badge,
+  .bottom-sheet,
+  .mobile-action-bar {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+}

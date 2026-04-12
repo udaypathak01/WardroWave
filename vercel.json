@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
   "env": {
     "NODE_ENV": "production"
   },
@@ -16,7 +16,7 @@
     }
   ],
   "functions": {
-    "api/index.js": {
+    "backend/api/index.js": {
       "memory": 1024,
       "maxDuration": 30
     }

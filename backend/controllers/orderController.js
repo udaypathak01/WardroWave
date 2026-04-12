@@ -75,7 +75,7 @@ const createOrder = asyncHandler(async (req, res) => {
       size: item.size || '',
       itemTotal,
       status: 'pending',
-      ownerId: p.owner || 'Renclo',
+      ownerId: p.owner || 'WardroWave',
     };
   }).filter(Boolean);
 
@@ -194,38 +194,4 @@ const cancelOrder = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Order cancelled' });
 });
 
-// ─── GET /api/orders/owner/activities ───────────────────────────────────────
-
-const getOwnerActivities = asyncHandler(async (req, res) => {
-  const db = getDB();
-  const snap = await db.collection(COLLECTIONS.ORDERS)
-    .where('ownerIds', 'array-contains', req.user.uid)
-    .get();
-
-  const activities = [];
-  let pendingPayout = 0;
-
-  snap.docs.forEach(doc => {
-    const order = doc.data();
-    order.items.forEach(item => {
-      if (item.ownerId === req.user.uid) {
-        activities.push({
-          item: item.name,
-          customer: order.userName,
-          date: order.createdAt,
-          status: item.status === 'pending' ? 'Active' : item.status,
-          earnings: item.itemTotal
-        });
-        if (order.status === 'confirmed' || order.status === 'pending') {
-          pendingPayout += item.itemTotal;
-        }
-      }
-    });
-  });
-
-  activities.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  res.status(200).json({ success: true, data: { activities: activities.slice(0, 10), pendingPayout } });
-});
-
-module.exports = { createOrder, getUserOrders, getOrderById, cancelOrder, getOwnerActivities };
+module.exports = { createOrder, getUserOrders, getOrderById, cancelOrder };

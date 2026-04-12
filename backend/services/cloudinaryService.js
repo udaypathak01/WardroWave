@@ -24,7 +24,7 @@ cloudinary.config({
  * @param {string} folder - Cloudinary folder path
  * @returns {Promise<Object>} - { secure_url, public_id, etc. }
  */
-const uploadToCloudinary = (fileBuffer, filename, folder = 'renclo/virtual-closet') => {
+const uploadToCloudinary = (fileBuffer, filename, folder = 'wardrowave/virtual-closet') => {
   // Validate config before attempting upload
   const { isValid, missing } = validateCloudinaryConfig();
   if (!isValid) {
