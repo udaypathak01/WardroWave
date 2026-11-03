@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import StorySection from '../components/about/StorySection';
 import ValuesCards from '../components/about/ValuesCards';
-import StatsSection from '../components/about/StatsSection';
-import TeamCards from '../components/about/TeamCards';
 import WhyChooseSection from '../components/about/WhyChooseSection';
+import ThemeBubbles from '../components/common/ThemeBubbles';
 
 export default function About() {
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function About() {
       <Header />
 
       {/* Hero Section - Gradient Theme View */}
-      <section className="relative h-[65vh] md:h-[75vh] flex items-center justify-center overflow-hidden">
+      <section className="about-hero relative h-[65vh] md:h-[75vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 bg-slate-50">
           {/* Main theme gradient */}
           <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 via-pink-600/5 to-purple-600/5"></div>
@@ -26,23 +26,21 @@ export default function About() {
           <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-200/40 rounded-full blur-[120px] animate-pulse"></div>
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-pink-200/30 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }}></div>
           
-          {/* Texture Mesh */}
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] mix-blend-overlay"></div>
-          
           {/* Bottom fade into white content */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white"></div>
+          <div className="about-hero-fade absolute inset-0 bg-gradient-to-b from-transparent to-white"></div>
         </div>
+        <ThemeBubbles />
 
         <div className="container mx-auto px-4 md:px-6 relative z-10 text-center">
           <div className="animate-fade-in">
             <span className="inline-block px-5 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-xs font-black tracking-[0.2em] uppercase mb-8 shadow-xl">
-              Since 2024
+              Premium fashion rentals
             </span>
             <h1 className="section-title text-5xl md:text-7xl lg:text-9xl font-black mb-10 tracking-tighter text-slate-900 leading-none">
-              The <span className="text-gradient">Future</span> of Fashion
+              Wear <span className="text-gradient">More</span>, Buy Less
             </h1>
             <p className="text-lg md:text-2xl text-slate-600 max-w-3xl mx-auto font-bold leading-relaxed">
-              WardroWave is a community-driven luxury rental ecosystem, where world-class style meets responsible consumption.
+              Browse available outfits, check rental dates and sizes, and book securely for your next occasion.
             </p>
           </div>
         </div>
@@ -59,14 +57,6 @@ export default function About() {
         </div>
         
         <div className="animate-fade-in" style={{ animationDelay: '0.5s' }}>
-          <StatsSection />
-        </div>
-        
-        <div className="animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <TeamCards />
-        </div>
-        
-        <div className="animate-fade-in" style={{ animationDelay: '0.7s' }}>
           <WhyChooseSection />
         </div>
 
@@ -77,24 +67,24 @@ export default function About() {
           
           <div className="relative z-10 animate-fade-in">
             <h2 className="section-title text-5xl md:text-7xl font-black text-slate-950 mb-10 leading-tight tracking-tighter">
-              Join the Movement.
+              Find Your Next Look.
             </h2>
             <p className="text-slate-500 text-xl md:text-3xl mb-16 max-w-4xl mx-auto font-bold leading-snug">
-              Every outfit shared is a story told. Start your journey into the world of curated luxury rentals today.
+              Browse current rental products and check availability for the dates you need.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-8">
-              <a 
-                href="/rentals"
+              <Link
+                to="/rentals"
                 className="btn-primary text-2xl px-14 py-6 shadow-2xl shadow-purple-500/40"
               >
                 Start Renting
-              </a>
-              <a 
-                href="/contact"
+              </Link>
+              <Link
+                to="/contact"
                 className="px-14 py-6 bg-white text-slate-900 font-black rounded-3xl border border-slate-300 hover:bg-slate-50 transition-all text-2xl"
               >
                 Inquire
-              </a>
+              </Link>
             </div>
           </div>
         </div>

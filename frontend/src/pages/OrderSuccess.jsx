@@ -1,61 +1,110 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Package, MapPin, Phone, Mail, Download, Home } from 'lucide-react';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import api from '../utils/api';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context api/AuthContext';
 
 export default function OrderSuccess() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const order = location.state?.order;
+  const [searchParams] = useSearchParams();
+  const [order, setOrder] = useState(location.state?.order || null);
+  const [loading, setLoading] = useState(!location.state?.order);
+  const [loadError, setLoadError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (!order) {
-      navigate('/cart');
+    if (order) return;
+    const bookingId = searchParams.get('bookingId');
+    if (!bookingId) {
+      setLoading(false);
+      setLoadError('No booking was selected.');
+      return;
     }
-  }, [order, navigate]);
+    let active = true;
+    api.order.getById(bookingId)
+      .then(({ data: booking }) => {
+        if (!active) return;
+        setOrder({
+          orderId: booking.bookingNumber,
+          bookingId: booking._id,
+          user: { name: booking.shippingAddress.fullName, email: user?.email || '', phone: booking.shippingAddress.phone },
+          shippingAddress: { ...booking.shippingAddress, addressLine1: booking.shippingAddress.line1, addressLine2: booking.shippingAddress.line2 },
+          items: booking.items.map((item) => ({ name: item.titleSnapshot, image: item.imageSnapshot, quantity: 1, rentalDays: item.rentalDays, rentalPrice: item.rentalCharge / 100, duration: item.rentalDays })),
+          pricing: {
+            subtotal: booking.pricing.rentalSubtotal / 100,
+            discount: booking.pricing.discount / 100,
+            couponCode: booking.pricing.couponCode,
+            tax: booking.pricing.gstAmount / 100,
+            gstPercent: booking.pricing.gstPercent,
+            deliveryFee: booking.pricing.deliveryFee / 100,
+            deposit: booking.pricing.depositTotal / 100,
+            total: booking.pricing.grandTotal / 100,
+          },
+          paymentMethod: 'Razorpay',
+          paymentStatus: booking.payment?.status,
+          status: booking.status,
+          createdAt: booking.createdAt,
+        });
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message || 'Could not load this booking.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [order, searchParams, retryCount, user?.email]);
 
   if (!order) {
-    return null;
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header />
+        <main className="container mx-auto px-4 py-16 text-center">
+          {loading ? (
+            <p role="status" className="text-gray-600">Loading booking…</p>
+          ) : (
+            <div role="alert" className="mx-auto max-w-lg rounded-2xl bg-white p-8">
+              <p className="mb-5 text-gray-700">{loadError || 'Booking details are unavailable.'}</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setLoadError('');
+                  setRetryCount((count) => count + 1);
+                }}
+                className="mr-4 font-semibold text-purple-600 underline"
+              >
+                Retry
+              </button>
+              <button onClick={() => navigate('/profile')} className="font-semibold text-purple-600 underline">
+                View bookings
+              </button>
+            </div>
+          )}
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
-  const downloadInvoice = () => {
-    const invoiceContent = `
-WARDOWAVE - ORDER INVOICE
-Order ID: ${order.orderId}
-Date: ${new Date(order.createdAt).toLocaleDateString()}
-
-CUSTOMER DETAILS:
-Name: ${order.user.name}
-Email: ${order.user.email}
-Phone: ${order.user.phone}
-
-SHIPPING ADDRESS:
-${order.shippingAddress.addressLine1}
-${order.shippingAddress.addressLine2 ? order.shippingAddress.addressLine2 + '\n' : ''}
-${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}
-
-ORDER ITEMS:
-${order.items.map(item => `${item.name} - Qty: ${item.quantity} × ${item.rentalDays} days - ₹${Math.round(item.rentalPrice * item.quantity * (item.rentalDays / (item.duration || 3)))}`).join('\n')}
-
-PRICING:
-Subtotal: ₹${Math.round(order.pricing.subtotal)}
-GST (18%): ₹${Math.round(order.pricing.tax)}
-Delivery Fee: ₹${order.pricing.deliveryFee}
-Total: ₹${Math.round(order.pricing.total)}
-
-Payment Method: ${order.paymentMethod}
-Status: ${order.status}
-    `;
-
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(invoiceContent));
-    element.setAttribute('download', `invoice-${order.orderId}.txt`);
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const downloadInvoice = async () => {
+    try {
+      const blob = await api.order.getInvoice(order.bookingId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${order.orderId}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error.message || 'Could not download invoice');
+    }
   };
+  const paymentConfirmed = order.paymentStatus === 'captured'
+    || ['confirmed', 'partially_dispatched', 'dispatched', 'delivered', 'return_requested', 'returned', 'completed']
+      .includes(order.status);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -72,10 +121,12 @@ Status: ${order.status}
             </div>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Order Confirmed!
+            {paymentConfirmed ? 'Order Confirmed!' : 'Payment Not Confirmed'}
           </h1>
           <p className="text-xl text-gray-600 mb-2">
-            Thank you for your order. Your items will be shipped soon.
+            {paymentConfirmed
+              ? 'Thank you for your order. Your items will be prepared for delivery.'
+              : 'Your booking is not confirmed yet. Check your booking history before trying payment again.'}
           </p>
           <p className="text-gray-600">
             Order ID: <span className="font-bold text-purple-600">{order.orderId}</span>
@@ -101,7 +152,9 @@ Status: ${order.status}
                     <div className="w-1 h-16 bg-green-200"></div>
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">Order Confirmed</p>
+                    <p className="font-bold text-gray-900">
+                      {paymentConfirmed ? 'Payment Confirmed' : 'Payment Pending'}
+                    </p>
                     <p className="text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString('en-IN', { 
                       year: 'numeric', 
                       month: 'long', 
@@ -119,7 +172,9 @@ Status: ${order.status}
                   </div>
                   <div>
                     <p className="font-bold text-gray-900">Processing</p>
-                    <p className="text-sm text-gray-600">Your order is being prepared</p>
+                    <p className="text-sm text-gray-600">
+                      {paymentConfirmed ? 'Your order is being prepared' : 'We are waiting for payment confirmation'}
+                    </p>
                   </div>
                 </div>
 
@@ -154,7 +209,7 @@ Status: ${order.status}
                         </p>
                       </div>
                       <p className="font-bold text-purple-600">
-                        ₹{Math.round(item.rentalPrice * item.quantity * (item.rentalDays / (item.duration || 3)))}
+                        ₹{Math.round(item.rentalPrice * item.quantity)}
                       </p>
                     </div>
                   ))}
@@ -178,15 +233,17 @@ Status: ${order.status}
                 <p>
                   {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}
                 </p>
-                <div className="pt-4 border-t flex gap-6">
+                <div className="pt-4 border-t flex flex-wrap gap-6">
                   <div className="flex items-center gap-2 text-purple-600">
                     <Phone className="w-5 h-5" />
                     {order.shippingAddress.phone}
                   </div>
-                  <div className="flex items-center gap-2 text-purple-600">
-                    <Mail className="w-5 h-5" />
-                    {order.user.email}
-                  </div>
+                  {order.user.email && (
+                    <div className="flex items-center gap-2 text-purple-600">
+                      <Mail className="w-5 h-5" />
+                      {order.user.email}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -203,13 +260,23 @@ Status: ${order.status}
                   <span>Subtotal</span>
                   <span className="font-medium">₹{Math.round(order.pricing.subtotal)}</span>
                 </div>
+                {order.pricing.discount > 0 && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Discount{order.pricing.couponCode ? ` (${order.pricing.couponCode})` : ''}</span>
+                    <span className="font-medium">-₹{Math.round(order.pricing.discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
-                  <span>GST (18%)</span>
+                  <span>GST ({order.pricing.gstPercent ?? 0}%)</span>
                   <span className="font-medium">₹{Math.round(order.pricing.tax)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
                   <span className="font-medium">₹{order.pricing.deliveryFee}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Refundable security deposit</span>
+                  <span className="font-medium">₹{Math.round(order.pricing.deposit || 0)}</span>
                 </div>
               </div>
 
@@ -222,15 +289,16 @@ Status: ${order.status}
               <div className="p-4 bg-blue-50 rounded-lg mb-6">
                 <p className="text-sm font-semibold text-blue-900 mb-1">Payment Method</p>
                 <p className="text-sm text-blue-800 capitalize">
-                  {order.paymentMethod === 'credit-card' ? 'Credit/Debit Card' : 
-                   order.paymentMethod === 'upi' ? 'UPI' : 'Digital Wallet'}
+                  {order.paymentMethod}
                 </p>
               </div>
 
               {/* Status */}
-              <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-sm font-semibold text-green-900 mb-1">Status</p>
-                <p className="text-sm text-green-800 capitalize font-bold">
+              <div className={`p-4 rounded-lg ${paymentConfirmed ? 'bg-green-50' : 'bg-amber-50'}`}>
+                <p className={`text-sm font-semibold mb-1 ${paymentConfirmed ? 'text-green-900' : 'text-amber-900'}`}>
+                  Status
+                </p>
+                <p className={`text-sm capitalize font-bold ${paymentConfirmed ? 'text-green-800' : 'text-amber-800'}`}>
                   {order.status}
                 </p>
               </div>
@@ -240,7 +308,8 @@ Status: ${order.status}
             <div className="space-y-3">
               <button
                 onClick={downloadInvoice}
-                className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold flex items-center justify-center gap-2"
+                disabled={!paymentConfirmed}
+                className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="w-5 h-5" />
                 Download Invoice

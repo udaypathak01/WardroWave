@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Eye,
   EyeOff,
@@ -9,14 +9,22 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuth } from "../context api/AuthContext";
 import Header from "../components/common/Header";
 import Footer from "../components/common/Footer";
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { signup, socialLogin } = useAuth();
+  const location = useLocation();
+  const {
+    signup,
+    socialLogin,
+    resendVerificationEmail,
+    refreshProfile,
+    isEmailVerified,
+  } = useAuth();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -33,10 +41,6 @@ export default function Signup() {
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -101,17 +105,18 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      await signup(
+      const result = await signup(
         formData.fullName,
         formData.email,
         formData.phone,
         formData.password
       );
-      setSuccess("Account created successfully! Redirecting...");
-
-      setTimeout(() => {
-        navigate("/profile");
-      }, 1500);
+      if (result.emailVerificationSent) {
+        toast.success(`Account created. Verify your email at ${formData.email} before checkout.`);
+      } else {
+        toast.error('Account created, but the verification email could not be sent.');
+      }
+      navigate(location.state?.from?.pathname || '/profile', { replace: true });
     } catch (err) {
       const msg = err.message || "An error occurred during signup";
       if (msg.toLowerCase().includes("email") || msg.toLowerCase().includes("exist")) {
@@ -126,12 +131,44 @@ export default function Signup() {
     }
   };
 
+  const handleResendVerification = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const sent = await resendVerificationEmail();
+      setSuccess(sent
+        ? `A new verification email was sent to ${formData.email}.`
+        : 'Your email is already verified.');
+    } catch (verificationError) {
+      setError(verificationError.message || 'Could not send the verification email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerified = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const profile = await refreshProfile();
+      if (!profile.emailVerified) {
+        setError('We could not confirm verification yet. Open the link in your email, then try again.');
+        return;
+      }
+      navigate(location.state?.from?.pathname || '/profile', { replace: true });
+    } catch (verificationError) {
+      setError(verificationError.message || 'Could not refresh your account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleSignup = async () => {
     setLoading(true);
     try {
       await socialLogin("google");
       setSuccess("Google signup successful! Redirecting...");
-      setTimeout(() => navigate("/profile"), 1500);
+      navigate(location.state?.from?.pathname || "/profile", { replace: true });
     } catch (err) {
       setError(err.message || "Google signup failed");
     } finally {
@@ -144,7 +181,7 @@ export default function Signup() {
     try {
       await socialLogin("facebook");
       setSuccess("Facebook signup successful! Redirecting...");
-      setTimeout(() => navigate("/profile"), 1500);
+      navigate(location.state?.from?.pathname || "/profile", { replace: true });
     } catch (err) {
       setError(err.message || "Facebook signup failed");
     } finally {
@@ -205,6 +242,26 @@ export default function Signup() {
               <div className="mb-6 p-4 rounded-lg flex items-center gap-3 bg-green-100 text-green-800 border border-green-300">
                 <CheckCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="text-sm">{success}</span>
+              </div>
+            )}
+            {success && !isEmailVerified && (
+              <div className="mb-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={loading}
+                  className="rounded-lg border border-purple-600 px-4 py-2 text-sm font-medium text-purple-700 disabled:opacity-60"
+                >
+                  Resend verification email
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVerified}
+                  disabled={loading}
+                  className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  I have verified my email
+                </button>
               </div>
             )}
 

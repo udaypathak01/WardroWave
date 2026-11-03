@@ -15,12 +15,6 @@ export default function StorySection() {
           />
         </div>
         
-        {/* Floating Stat Card */}
-        <div className="absolute bottom-10 -right-8 glass p-6 rounded-3xl shadow-xl border border-white/50 max-w-[200px] hidden md:block">
-          <p className="text-4xl font-black text-gradient mb-1">2024</p>
-          <p className="text-sm font-bold text-slate-900 uppercase tracking-tighter">Year We Started</p>
-          <p className="text-xs text-slate-500 mt-2 font-medium">From a small idea to India's leading rental platform.</p>
-        </div>
       </div>
 
       <div className="space-y-10">
@@ -29,30 +23,30 @@ export default function StorySection() {
             Redefining <span className="text-gradient">Style</span> Through Circulation
           </h2>
           <p className="text-slate-600 text-lg md:text-xl font-medium leading-relaxed">
-            WardroWave was born from a simple yet powerful observation: our closets are full of untapped value, while our desire for fresh style is constant. 
+            WardroWave makes it easier to find an outfit for an occasion without buying something you may only wear once.
           </p>
         </div>
         
         <div className="space-y-6">
           <p className="text-slate-600 leading-relaxed text-lg">
-            Founded in the heart of the digital transformation, we set out to build more than a website—we built a movement. Our platform connects thousands of fashion-forward individuals, allowing luxury pieces to live multiple lives across different styled stories.
+            Browse the catalog, select an available size and rental period, and review the booking quote before paying. Each booking is tied to your account so you can return to your order details later.
           </p>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 italic transition-transform hover:scale-105">
               <Award className="w-8 h-8 text-purple-600 mb-3" />
               <h4 className="font-bold text-slate-900">Premium</h4>
-              <p className="text-xs text-slate-500">Only the finest curated pieces</p>
+              <p className="text-xs text-slate-500">Explore published rental products</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 transition-transform hover:scale-105">
               <Heart className="w-8 h-8 text-pink-600 mb-3" />
               <h4 className="font-bold text-slate-900">Curated</h4>
-              <p className="text-xs text-slate-500">Hand-picked by stylists</p>
+              <p className="text-xs text-slate-500">Choose dates and size availability</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 transition-transform hover:scale-105">
               <Zap className="w-8 h-8 text-purple-600 mb-3" />
               <h4 className="font-bold text-slate-900">Swift</h4>
-              <p className="text-xs text-slate-500">Fast delivery nationwide</p>
+              <p className="text-xs text-slate-500">Review delivery fees at checkout</p>
             </div>
           </div>
         </div>

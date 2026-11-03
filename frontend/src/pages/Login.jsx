@@ -14,8 +14,8 @@ export default function Login() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) navigate(location.state?.from?.pathname || '/', { replace: true });
+  }, [isAuthenticated, navigate, location.state]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -107,7 +107,7 @@ export default function Login() {
     try {
       await socialLogin('google');
       setSuccess('Google login successful! Redirecting...');
-      setTimeout(() => navigate('/'), 1500);
+      navigate(location.state?.from?.pathname || '/', { replace: true });
     } catch (err) {
       setError(err.message || 'Google login failed');
     } finally {
@@ -120,22 +120,12 @@ export default function Login() {
     try {
       await socialLogin('facebook');
       setSuccess('Facebook login successful! Redirecting...');
-      setTimeout(() => navigate('/'), 1500);
+      navigate(location.state?.from?.pathname || '/', { replace: true });
     } catch (err) {
       setError(err.message || 'Facebook login failed');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Demo credentials hint
-  const fillDemoCredentials = () => {
-    setFormData({
-      email: 'demo@example.com',
-      password: 'Demo@123'
-    });
-    setErrors({});
-    setError('');
   };
 
   return (
@@ -292,11 +282,6 @@ export default function Login() {
                   </svg>
                   Facebook
                 </button>
-              </div>
-
-              {/* Demo Fill Link (Development only basically) */}
-              <div className="mt-4 flex justify-center">
-                 {/* Only showing this to match original component design implicitly, removed or kept clean. I will just keep the function demo call */}
               </div>
 
               {/* Sign Up Link */}

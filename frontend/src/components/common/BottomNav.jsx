@@ -1,9 +1,12 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Compass, Shirt, Heart, User } from 'lucide-react';
 import { useWishlist } from '../../context api/WishlistContext';
 
 export default function BottomNav() {
   const { wishlistCount } = useWishlist();
+  const { pathname } = useLocation();
+
+  if (pathname.startsWith('/admin')) return null;
 
   // Active styles specifically requested for visually premium, responsive interface
   const navLinkClass = ({ isActive }) =>

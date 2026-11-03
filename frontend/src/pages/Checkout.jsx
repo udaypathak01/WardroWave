@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context api/CartContext';
 import { useAuth } from '../context api/AuthContext';
 import api from '../utils/api';
+import { rentalCalendarDate } from '../utils/api';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import {
@@ -11,8 +12,6 @@ import {
   Phone,
   Mail,
   CreditCard,
-  Smartphone,
-  Wallet,
   ShoppingBag,
   CheckCircle,
   AlertCircle,
@@ -25,7 +24,7 @@ import {
 export default function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { cart, getCartTotal, clearCart } = useCart();
+  const { cart, couponCode, isLoading: cartLoading, getCartTotal, clearCart } = useCart();
 
   // Form states
   const [currentStep, setCurrentStep] = useState(1);
@@ -35,12 +34,14 @@ export default function Checkout() {
 
   // Address and UI states
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [isShowingForm, setIsShowingForm] = useState(false);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
 
   // Address form
   const [address, setAddress] = useState({
-    fullName: user?.fullName || '',
+    fullName: user?.name || user?.fullName || '',
     email: user?.email || '',
     phone: user?.phone || '',
     addressLine1: '',
@@ -51,84 +52,69 @@ export default function Checkout() {
     country: 'India'
   });
 
-  // Payment method
-  const [paymentMethod, setPaymentMethod] = useState('credit-card');
-
-  // Card details
-  const [cardDetails, setCardDetails] = useState({
-    cardNumber: '',
-    cardHolder: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: ''
-  });
-
-  // UPI details
-  const [upiId, setUpiId] = useState('');
+  const idempotencyKey = useRef(crypto.randomUUID());
 
   // Order data
-  const total = getCartTotal();
-  const tax = total * 0.18;
-  const deliveryFee = cart.length > 0 ? 99 : 0;
-  const grandTotal = total + tax + deliveryFee;
+  const total = quote ? quote.rentalSubtotal / 100 : getCartTotal();
+  const discount = quote ? quote.discount / 100 : 0;
+  const tax = quote ? quote.gstAmount / 100 : 0;
+  const deliveryFee = quote ? quote.deliveryFee / 100 : 0;
+  const deposit = quote ? quote.depositTotal / 100 : 0;
+  const grandTotal = quote ? quote.grandTotal / 100 : total;
+
+  useEffect(() => {
+    if (!/^\d{6}$/.test(address.pincode) || cart.length === 0) {
+      setQuote(null);
+      setQuoteLoading(false);
+      return undefined;
+    }
+    let active = true;
+    setError('');
+    setQuoteLoading(true);
+    const items = cart.map((item) => ({
+      variantId: item.variantId,
+      startDate: rentalCalendarDate(item.startDate),
+      endDate: rentalCalendarDate(item.endDate),
+    }));
+    api.order.getQuote({
+      items,
+      pincode: address.pincode,
+      ...(couponCode ? { couponCode } : {}),
+    })
+      .then((response) => { if (active) setQuote(response.data); })
+      .catch((error) => { if (active) { setQuote(null); setError(error.message); } })
+      .finally(() => { if (active) setQuoteLoading(false); });
+    return () => { active = false; };
+  }, [address.pincode, cart, couponCode]);
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
-      return;
-    }
-    if (cart.length === 0) {
+    } else if (!cartLoading && cart.length === 0) {
       navigate('/cart');
-      return;
     }
-    
-    // Load saved addresses directly from user context to avoid race conditions
-    const loadAddresses = () => {
-      // 1. Try Context Profile Addresses
-      let loadedAddresses = user?.addresses || [];
+  }, [user, navigate, cart.length, cartLoading]);
 
-      // 2. Fallback to Local Storage if API has zero addresses
-      if (!loadedAddresses || loadedAddresses.length === 0) {
-        const userIdKey = user?.uid ? `savedAddresses_${user.uid}` : 'savedAddresses';
-        const stored = localStorage.getItem(userIdKey);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              loadedAddresses = parsed;
-            }
-          } catch (e) {
-            console.error('Error parsing saved addresses', e);
-          }
-        }
-      }
-
-      // 3. Apply Addresses
-      if (loadedAddresses && loadedAddresses.length > 0) {
-        setSavedAddresses(loadedAddresses);
-        setAddress(loadedAddresses[0]);
-        setIsShowingForm(false);
-        setSelectedAddressIndex(0);
-      } else {
-        setIsShowingForm(true);
-        setAddress(prev => ({
-          ...prev,
-          fullName: user?.fullName || '',
-          email: user?.email || '',
-          phone: user?.phone || ''
-        }));
-      }
-    };
-
-    loadAddresses();
-    
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [user, cart, navigate]);
+  useEffect(() => {
+    if (!user) return;
+    const loadedAddresses = (user?.addresses || []).map((entry) => ({
+      ...entry,
+      addressLine1: entry.line1,
+      addressLine2: entry.line2 || '',
+      email: user.email || '',
+    }));
+    if (loadedAddresses.length) {
+      setSavedAddresses(loadedAddresses);
+      const selectedIndex = Math.max(0, loadedAddresses.findIndex((entry) => entry.isDefault));
+      const selected = loadedAddresses[selectedIndex];
+      setSelectedAddressIndex(selectedIndex);
+      setAddress({ ...selected, addressLine1: selected.line1, addressLine2: selected.line2 || '', email: user.email || '' });
+      setIsShowingForm(false);
+    } else {
+      setIsShowingForm(true);
+      setAddress((prev) => ({ ...prev, fullName: user?.name || '', email: user?.email || '', phone: user?.phone || '' }));
+    }
+  }, [user]);
 
   // Validate address
   const validateAddress = () => {
@@ -136,7 +122,7 @@ export default function Checkout() {
       setError('Full name is required');
       return false;
     }
-    if (!address.phone.match(/^\d{10}$/)) {
+    if (!/^\+?\d{10,13}$/.test(String(address.phone || '').replace(/[\s()-]/g, ''))) {
       setError('Please enter a valid 10-digit phone number');
       return false;
     }
@@ -159,98 +145,96 @@ export default function Checkout() {
     return true;
   };
 
-  // Validate payment details
-  const validatePayment = () => {
-    if (paymentMethod === 'credit-card') {
-      if (!cardDetails.cardNumber.match(/^\d{16}$/)) {
-        setError('Please enter a valid 16-digit card number');
-        return false;
-      }
-      if (!cardDetails.cardHolder.trim()) {
-        setError('Cardholder name is required');
-        return false;
-      }
-      if (!cardDetails.expiryMonth || !cardDetails.expiryYear) {
-        setError('Please enter expiry date');
-        return false;
-      }
-      if (!cardDetails.cvv.match(/^\d{3,4}$/)) {
-        setError('Please enter a valid CVV');
-        return false;
-      }
-    } else if (paymentMethod === 'upi') {
-      if (!upiId.match(/^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/)) {
-        setError('Please enter a valid UPI ID (e.g., name@upi)');
-        return false;
-      }
-    }
-    return true;
-  };
-
   // Process payment
   const processPayment = async () => {
     setError('');
-    if (!validatePayment()) return;
+    if (!quote || quoteLoading) {
+      setError('Enter a valid delivery pincode and wait for the rental quote before paying.');
+      return;
+    }
+    if (!quote.available) {
+      setError('One or more selected items are unavailable for these rental dates.');
+      return;
+    }
 
     setLoading(true);
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Create order
-      const order = {
-        orderId: `ORD-${Date.now()}`,
-        user: {
-          name: address.fullName,
-          email: address.email,
-          phone: address.phone
-        },
-        shippingAddress: address,
-        items: cart,
-        totalAmount: grandTotal, // for OrderHistory compat
-        pricing: {
-          subtotal: total,
-          tax: tax,
-          deliveryFee: deliveryFee,
-          total: grandTotal
-        },
-        paymentMethod: paymentMethod,
-        status: 'confirmed',
-        createdAt: new Date().toISOString()
-      };
-
-      // Save order to backend
-      try {
-        await api.order.create({
-          ...order,
-          items: cart.map(item => ({
-            productId: item.id || item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            rentalDays: item.rentalDays,
-            rentalPrice: item.rentalPrice,
-            image: item.image || (item.images && item.images[0])
-          }))
-        });
-      } catch (err) {
-        console.error("Failed to sync order to profile", err);
+      let addressId = address._id || address.id;
+      if (!addressId) {
+        throw new Error('Save your delivery address before payment.');
       }
-
-      // Also save to localStorage as fallback/cache
-      const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-      existingOrders.push(order);
-      localStorage.setItem('orders', JSON.stringify(existingOrders));
-
-      setSuccess('Payment successful! Order confirmed.');
-      clearCart();
-
-      // Redirect to success page
-      setTimeout(() => {
-        navigate('/order-success', { state: { order } });
-      }, 1500);
+      const bookingRes = await api.order.create({ addressId }, idempotencyKey.current);
+      const paymentOrder = bookingRes.data;
+      const booking = paymentOrder?.booking;
+      if (!booking?._id || !paymentOrder.razorpayOrderId || !paymentOrder.keyId) {
+        throw new Error('The payment provider is not ready. Please try again later.');
+      }
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Could not load the secure payment window.'));
+          document.body.appendChild(script);
+        });
+      }
+      const checkout = new window.Razorpay({
+        key: paymentOrder.keyId,
+        amount: paymentOrder.amount,
+        currency: paymentOrder.currency,
+        name: 'WardroWave',
+        description: `Rental booking ${booking.bookingNumber}`,
+        order_id: paymentOrder.razorpayOrderId,
+        prefill: paymentOrder.prefill,
+        theme: { color: '#7c3aed' },
+        handler: async (result) => {
+          try {
+            const verification = await api.order.verifyPayment({
+              razorpay_order_id: result.razorpay_order_id,
+              razorpay_payment_id: result.razorpay_payment_id,
+              razorpay_signature: result.razorpay_signature,
+            });
+            const bookingResponse = await api.order.getById(verification.data.bookingId || booking._id);
+            const confirmed = bookingResponse.data;
+            const order = {
+              orderId: confirmed.bookingNumber,
+              bookingId: confirmed._id,
+              user: { name: confirmed.shippingAddress.fullName, email: user.email, phone: confirmed.shippingAddress.phone },
+              shippingAddress: { ...confirmed.shippingAddress, addressLine1: confirmed.shippingAddress.line1, addressLine2: confirmed.shippingAddress.line2 },
+              items: confirmed.items.map((item) => ({ name: item.titleSnapshot, image: item.imageSnapshot, quantity: 1, rentalDays: item.rentalDays, rentalPrice: item.rentalCharge / 100, duration: item.rentalDays })),
+              pricing: {
+                subtotal: confirmed.pricing.rentalSubtotal / 100,
+                discount: confirmed.pricing.discount / 100,
+                couponCode: confirmed.pricing.couponCode,
+                tax: confirmed.pricing.gstAmount / 100,
+                gstPercent: confirmed.pricing.gstPercent,
+                deliveryFee: confirmed.pricing.deliveryFee / 100,
+                deposit: confirmed.pricing.depositTotal / 100,
+                total: confirmed.pricing.grandTotal / 100,
+              },
+              paymentMethod: 'Razorpay',
+              paymentStatus: confirmed.payment?.status,
+              status: confirmed.status,
+              createdAt: confirmed.createdAt,
+            };
+            await clearCart();
+            setSuccess('Payment successful! Your rental is confirmed.');
+            navigate(`/order-success?bookingId=${encodeURIComponent(order.bookingId)}`, { state: { order } });
+          } catch (verifyError) {
+            setError(verifyError.message || 'Payment received but confirmation is still processing. Check your booking history before retrying.');
+          } finally {
+            setLoading(false);
+          }
+        },
+        modal: { ondismiss: () => setLoading(false) },
+      });
+      checkout.on('payment.failed', (event) => {
+        setError(event.error?.description || 'Payment failed. You can try again.');
+        setLoading(false);
+      });
+      checkout.open();
     } catch (err) {
       setError(err.message || 'Payment failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -262,33 +246,6 @@ export default function Checkout() {
       [name]: value
     }));
     setError('');
-  };
-
-  const handleCardChange = (e) => {
-    const { name, value } = e.target;
-    let formattedValue = value;
-
-    // Format card number with spaces
-    if (name === 'cardNumber') {
-      formattedValue = value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
-      if (formattedValue.length > 19) formattedValue = formattedValue.slice(0, 19);
-    }
-
-    // Limit CVV to 4 digits
-    if (name === 'cvv' && value.length > 4) return;
-
-    setCardDetails(prev => ({
-      ...prev,
-      [name]: formattedValue
-    }));
-    setError('');
-  };
-
-  const handleProceedToPayment = () => {
-    if (validateAddress()) {
-      setError('');
-      setCurrentStep(2);
-    }
   };
 
   return (
@@ -365,7 +322,7 @@ export default function Checkout() {
                           key={idx}
                           onClick={() => {
                             setSelectedAddressIndex(idx);
-                            setAddress(addr);
+                            setAddress({ ...addr, addressLine1: addr.addressLine1 || addr.line1, addressLine2: addr.addressLine2 || addr.line2 || '' });
                             setError('');
                           }}
                           className={`p-4 sm:p-5 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
@@ -410,7 +367,7 @@ export default function Checkout() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setCurrentStep(2);
+                                  if (validateAddress()) setCurrentStep(2);
                                 }}
                                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:shadow-md transition-all flex items-center gap-2"
                               >
@@ -436,7 +393,7 @@ export default function Checkout() {
                         type="button"
                         onClick={() => {
                           setAddress({
-                            fullName: user?.fullName || '',
+                            fullName: user?.name || user?.fullName || '',
                             email: user?.email || '',
                             phone: user?.phone || '',
                             addressLine1: '',
@@ -591,45 +548,39 @@ export default function Checkout() {
                             if (validateAddress()) {
                               setError('');
                               
-                              // Sync to backend profile
                               try {
-                                const newAddressData = {
+                                const addressData = {
                                   label: 'Home',
                                   fullName: address.fullName,
                                   phone: address.phone,
                                   addressLine1: address.addressLine1,
+                                  addressLine2: address.addressLine2,
                                   city: address.city,
                                   state: address.state,
                                   pincode: address.pincode,
-                                  isDefault: false
+                                  isDefault: savedAddresses.length === 0
                                 };
-                                await api.user.addAddress(newAddressData);
+                                const response = address._id
+                                  ? await api.user.updateAddress(address._id, addressData)
+                                  : await api.user.addAddress(addressData);
+                                const saved = response.data;
+                                const normalized = { ...saved, addressLine1: saved.line1, addressLine2: saved.line2 || '', email: user?.email || '' };
+                                const updated = address._id
+                                  ? savedAddresses.map((entry) => entry._id === address._id ? normalized : entry)
+                                  : [...savedAddresses, normalized];
+                                setSavedAddresses(updated);
+                                setSelectedAddressIndex(Math.max(0, updated.findIndex((entry) => entry._id === normalized._id)));
+                                setAddress(normalized);
+                                setIsShowingForm(false);
+                                setCurrentStep(2);
                               } catch (err) {
-                                console.error('Failed to sync address to profile', err);
+                                setError(err.message || 'Could not save this address. Please try again.');
                               }
-
-                              const userIdKey = user?.uid ? `savedAddresses_${user.uid}` : 'savedAddresses';
-                              let stored = [...savedAddresses];
-                              
-                              // Replace if editing, push if new
-                              // We use city and state + line1 as a rough unique identifier
-                              const existsIdx = stored.findIndex(a => a.addressLine1 === address.addressLine1 && a.pincode === address.pincode);
-                              if (existsIdx === -1) {
-                                  stored.push(address);
-                                  setSelectedAddressIndex(stored.length - 1);
-                              } else {
-                                  stored[existsIdx] = address;
-                                  setSelectedAddressIndex(existsIdx);
-                              }
-                              
-                              localStorage.setItem(userIdKey, JSON.stringify(stored));
-                              setSavedAddresses(stored);
-                              setIsShowingForm(false);
                             }
                           }}
                           className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition font-semibold"
                         >
-                          Save Address
+                          Save & Proceed to Payment
                         </button>
                       </div>
                     </form>
@@ -643,196 +594,15 @@ export default function Checkout() {
                       <CreditCard className="w-6 h-6 text-purple-600" />
                       Payment Method
                     </h2>
-                    <p className="text-gray-600 text-sm">Choose your preferred payment method</p>
+                    <p className="text-gray-600 text-sm">
+                      Choose card, UPI, or a supported wallet in Razorpay Checkout.
+                    </p>
                   </div>
 
-                  {/* Payment Method Options */}
-                  <div className="space-y-4">
-                    {/* Credit Card Option */}
-                    <div
-                      onClick={() => setPaymentMethod('credit-card')}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition ${
-                        paymentMethod === 'credit-card'
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-300 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'credit-card' ? 'border-purple-600 bg-purple-600' : 'border-gray-400'
-                        }`}>
-                          {paymentMethod === 'credit-card' && <CheckCircle className="w-4 h-4 text-white" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-purple-600" />
-                          <div>
-                            <p className="font-semibold text-gray-900">Credit/Debit Card</p>
-                            <p className="text-sm text-gray-600">Visa, Mastercard, RuPay</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* UPI Option */}
-                    <div
-                      onClick={() => setPaymentMethod('upi')}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition ${
-                        paymentMethod === 'upi'
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-300 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'upi' ? 'border-purple-600 bg-purple-600' : 'border-gray-400'
-                        }`}>
-                          {paymentMethod === 'upi' && <CheckCircle className="w-4 h-4 text-white" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="w-5 h-5 text-purple-600" />
-                          <div>
-                            <p className="font-semibold text-gray-900">UPI</p>
-                            <p className="text-sm text-gray-600">Google Pay, PhonePe, Paytm</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Wallet Option */}
-                    <div
-                      onClick={() => setPaymentMethod('wallet')}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition ${
-                        paymentMethod === 'wallet'
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-300 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          paymentMethod === 'wallet' ? 'border-purple-600 bg-purple-600' : 'border-gray-400'
-                        }`}>
-                          {paymentMethod === 'wallet' && <CheckCircle className="w-4 h-4 text-white" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Wallet className="w-5 h-5 text-purple-600" />
-                          <div>
-                            <p className="font-semibold text-gray-900">Digital Wallet</p>
-                            <p className="text-sm text-gray-600">Amazon Pay, Mobikwik</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="rounded-xl border border-purple-100 bg-purple-50 p-5">
+                    <p className="font-semibold text-purple-900">Secure payment with Razorpay</p>
+                    <p className="mt-1 text-sm text-purple-800">Choose card, UPI, or a supported wallet in the secure payment window. Card details are never entered on WardroWave.</p>
                   </div>
-
-                  {/* Payment Form */}
-                  {paymentMethod === 'credit-card' && (
-                    <div className="space-y-4 pt-6 border-t">
-                      <h3 className="font-bold text-gray-900">Card Details</h3>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Cardholder Name</label>
-                        <input
-                          type="text"
-                          name="cardHolder"
-                          value={cardDetails.cardHolder}
-                          onChange={handleCardChange}
-                          placeholder="Name on card"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Card Number</label>
-                        <input
-                          type="text"
-                          name="cardNumber"
-                          value={cardDetails.cardNumber}
-                          onChange={handleCardChange}
-                          placeholder="1234 5678 9012 3456"
-                          maxLength="19"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition font-mono"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Month</label>
-                          <select
-                            name="expiryMonth"
-                            value={cardDetails.expiryMonth}
-                            onChange={handleCardChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition"
-                          >
-                            <option value="">MM</option>
-                            {Array.from({ length: 12 }, (_, i) => (
-                              <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                                {String(i + 1).padStart(2, '0')}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">Year</label>
-                          <select
-                            name="expiryYear"
-                            value={cardDetails.expiryYear}
-                            onChange={handleCardChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition"
-                          >
-                            <option value="">YY</option>
-                            {Array.from({ length: 10 }, (_, i) => {
-                              const year = new Date().getFullYear() + i;
-                              return (
-                                <option key={year} value={String(year).slice(-2)}>
-                                  {String(year).slice(-2)}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-2">CVV</label>
-                          <input
-                            type="text"
-                            name="cvv"
-                            value={cardDetails.cvv}
-                            onChange={handleCardChange}
-                            placeholder="123"
-                            maxLength="4"
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'upi' && (
-                    <div className="space-y-4 pt-6 border-t">
-                      <h3 className="font-bold text-gray-900">UPI Payment</h3>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">UPI ID</label>
-                        <input
-                          type="text"
-                          value={upiId}
-                          onChange={(e) => {
-                            setUpiId(e.target.value);
-                            setError('');
-                          }}
-                          placeholder="yourname@upi (e.g., john@okhdfcbank)"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition"
-                        />
-                        <p className="text-xs text-gray-600 mt-2">Supports Google Pay, PhonePe, Paytm, WhatsApp Pay</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'wallet' && (
-                    <div className="space-y-4 pt-6 border-t text-center">
-                      <p className="text-gray-600">You will be redirected to the wallet provider</p>
-                    </div>
-                  )}
 
                   {/* Buttons */}
                   <div className="flex gap-4 pt-6 border-t">
@@ -858,7 +628,7 @@ export default function Checkout() {
                       ) : (
                         <>
                           <Lock className="w-5 h-5" />
-                          Complete Payment
+                          Pay securely with Razorpay
                         </>
                       )}
                     </button>
@@ -884,7 +654,13 @@ export default function Checkout() {
                       <p className="font-medium text-gray-900 truncate">{item.name}</p>
                       <p className="text-xs text-gray-600">Qty: {item.quantity} × {item.rentalDays} days</p>
                     </div>
-                    <p className="font-semibold text-gray-900 ml-2">₹{Math.round(item.rentalPrice * item.quantity * (item.rentalDays / (item.duration || 3)))}</p>
+                    <p className="font-semibold text-gray-900 ml-2">
+                      ₹{Math.round(
+                        (item.rentalPrice + (item.extraDayPrice || 0)
+                          * Math.max(0, item.rentalDays - (item.minRentalDays || 3)))
+                        * item.quantity,
+                      )}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -895,18 +671,31 @@ export default function Checkout() {
                   <span>Subtotal</span>
                   <span className="font-medium">₹{Math.round(total)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-700">
+                    <span>Discount{quote?.couponCode ? ` (${quote.couponCode})` : ''}</span>
+                    <span className="font-medium">-₹{Math.round(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
-                  <span>GST (18%)</span>
+                  <span>GST ({quote?.gstPercent ?? 0}%)</span>
                   <span className="font-medium">₹{Math.round(tax)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Fee</span>
                   <span className="font-medium">₹{deliveryFee}</span>
                 </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Refundable security deposit</span>
+                  <span className="font-medium">₹{Math.round(deposit)}</span>
+                </div>
                 <div className="border-t pt-3 flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span className="text-purple-600">₹{Math.round(grandTotal)}</span>
                 </div>
+                {quoteLoading && <p className="text-sm text-gray-500">Checking delivery and rental availability…</p>}
+                {quote && !quote.available && <p className="text-sm text-red-600">One or more items are unavailable for these dates or this delivery pincode.</p>}
+                {quote?.available && <p className="text-xs text-green-700">Rental dates and delivery area are available.</p>}
               </div>
 
               {/* Security Info */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useDeferredValue } from "react";
 import Header from '../components/common/Header';
 import Footer from "../components/common/Footer";
 import RentalCard from "../components/rentals/RentalCard";
@@ -7,76 +7,75 @@ import RentalTopBar from "../components/rentals/RentalTopBar";
 import PageTransition, { StaggerContainer, StaggerItem } from '../components/common/PageTransition';
 import { SkeletonGrid } from '../components/common/Skeleton';
 import { useLocation } from "react-router-dom";
-import api from "../utils/api";
+import { mapCatalogProduct } from "../utils/api";
+import { useCategoriesQuery, useProductsQuery } from "../lib/api/hooks";
 
-export default function Rentals() {
+function flattenCategories(categories = []) {
+  return categories.flatMap((category) => [
+    category,
+    ...flattenCategories(category.children || []),
+  ]);
+}
+
+export default function Rentals({ initialCategory = 'all' }) {
+  const location = useLocation();
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(
+    location.state?.gender || initialCategory,
+  );
   const [selectedPrice, setSelectedPrice] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
   const [searchQuery, setSearchQuery] = useState("");
-  const location = useLocation();
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim());
+  const categoriesQuery = useCategoriesQuery();
+  const [selectedCategoryId, setSelectedCategoryId] = useState(location.state?.categoryId || "");
 
   useEffect(() => {
-    // Set search query from header navigation
-    if (location.state?.searchQuery) {
-      setSearchQuery(location.state.searchQuery);
-    }
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const res = await api.product.getAll();
-        setProducts(res.data?.products || res.products || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [location.state?.searchQuery]);
+    setSearchQuery(location.state?.searchQuery || "");
+    setSelectedCategoryId(location.state?.categoryId || "");
+    setSelectedCategory(location.state?.gender || initialCategory);
+  }, [
+    initialCategory,
+    location.state?.searchQuery,
+    location.state?.categoryId,
+    location.state?.gender,
+  ]);
 
-  // Filter items
-  let filteredItems = products.filter((item) => {
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      if (
-        !item.name.toLowerCase().includes(query) &&
-        !item.category.toLowerCase().includes(query)
-      ) {
-        return false;
-      }
-    }
-
-    // Category filter
-    if (selectedCategory !== "all" && item.category !== selectedCategory)
-      return false;
-
-    // Price filter
-    if (selectedPrice === "low") {
-      return item.rentalPrice < 300;
-    } else if (selectedPrice === "mid") {
-      return item.rentalPrice >= 300 && item.rentalPrice < 600;
-    } else if (selectedPrice === "high") {
-      return item.rentalPrice >= 600;
-    }
-
-    return true;
-  });
-
-  // Sort items
-  if (sortBy === "price-low") {
-    filteredItems.sort((a, b) => a.rentalPrice - b.rentalPrice);
-  } else if (sortBy === "price-high") {
-    filteredItems.sort((a, b) => b.rentalPrice - a.rentalPrice);
-  } else if (sortBy === "rating") {
-    filteredItems.sort((a, b) => b.rating - a.rating);
-  } else if (sortBy === "newest") {
-    filteredItems.sort((a, b) => b.id - a.id);
-  }
+  const allCategories = flattenCategories(categoriesQuery.data?.data || []);
+  const accessoriesCategory = allCategories.find((category) =>
+    `${category.slug} ${category.name}`.toLowerCase().includes("accessor"),
+  );
+  const sortMap = {
+    featured: "featured",
+    newest: "newest",
+    "price-low": "price_asc",
+    "price-high": "price_desc",
+    rating: "rating",
+  };
+  const priceFilters = {
+    all: {},
+    low: { maxPrice: 29999 },
+    mid: { minPrice: 30000, maxPrice: 59999 },
+    high: { minPrice: 60000 },
+  };
+  const productFilters = {
+    limit: 100,
+    page: 1,
+    sort: sortMap[sortBy],
+    ...(deferredSearchQuery && { q: deferredSearchQuery }),
+    ...(["men", "women"].includes(selectedCategory) && { gender: selectedCategory }),
+    ...(selectedCategoryId && { category: selectedCategoryId }),
+    ...(selectedCategory === "accessories" && accessoriesCategory && {
+      category: accessoriesCategory._id,
+    }),
+    ...priceFilters[selectedPrice],
+  };
+  const categoryReady = selectedCategory !== "accessories"
+    || (!categoriesQuery.isPending && Boolean(accessoriesCategory));
+  const productsQuery = useProductsQuery(productFilters, categoryReady);
+  const filteredItems = (productsQuery.data?.data || []).map(mapCatalogProduct);
+  const loading = categoriesQuery.isPending || (categoryReady && productsQuery.isPending);
+  const loadError = categoriesQuery.error || productsQuery.error;
 
   return (
     <PageTransition className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
@@ -102,7 +101,10 @@ export default function Rentals() {
             showFilters={showFilters}
             setShowFilters={setShowFilters}
             selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
+            setSelectedCategory={(category) => {
+              setSelectedCategory(category);
+              setSelectedCategoryId("");
+            }}
             selectedPrice={selectedPrice}
             setSelectedPrice={setSelectedPrice}
           />{" "}
@@ -120,6 +122,27 @@ export default function Rentals() {
             {/* Rentals Grid */}
             {loading ? (
               <SkeletonGrid count={6} />
+            ) : loadError ? (
+              <div role="alert" className="text-center py-12 bg-white rounded-lg">
+                <p className="text-gray-700 text-lg mb-4">
+                  We couldn't load the collection. Please try again.
+                </p>
+                <button
+                  onClick={() => {
+                    if (categoriesQuery.error) categoriesQuery.refetch();
+                    if (productsQuery.error) productsQuery.refetch();
+                  }}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-pink-600 transition font-medium"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : selectedCategory === "accessories" && !accessoriesCategory ? (
+              <div role="status" className="text-center py-12 bg-white rounded-lg">
+                <p className="text-gray-600 text-lg">
+                  The accessories category isn't available yet.
+                </p>
+              </div>
             ) : filteredItems.length > 0 ? (
               <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {filteredItems.map((item) => (
@@ -134,7 +157,9 @@ export default function Rentals() {
                 <button
                   onClick={() => {
                     setSelectedCategory("all");
+                    setSelectedCategoryId("");
                     setSelectedPrice("all");
+                    setSearchQuery("");
                   }}
                   className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-pink-600 transition font-medium"
                 >

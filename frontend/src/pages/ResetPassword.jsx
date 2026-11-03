@@ -85,7 +85,7 @@ export default function ResetPassword() {
         } else {
           setError('User not found');
         }
-      } catch (err) {
+      } catch {
         setError('An error occurred while resetting password');
       } finally {
         setLoading(false);

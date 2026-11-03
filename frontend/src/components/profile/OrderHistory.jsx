@@ -6,36 +6,57 @@ import toast from 'react-hot-toast';
 export default function OrderHistory() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+
+  const downloadInvoice = async (bookingId) => {
+    try {
+      const blob = await api.order.getInvoice(bookingId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${bookingId}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error(error.message || 'Could not download invoice');
+    }
+  };
 
   useEffect(() => {
-    // Fetch user orders. Currently using mock data if API fails to show UI structure.
+    let active = true;
     const fetchOrders = async () => {
       try {
         setLoading(true);
+        setLoadError('');
         const res = await api.order.getAll();
-        // Fallback to empty array if no orders exist instead of mock array
-        setOrders(res.data?.orders || []);
-      } catch (err) {
-        toast.error('Failed to load order history');
+        if (active) setOrders(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        if (active) setLoadError(error.message || 'Failed to load your booking history.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchOrders();
-  }, []);
+    return () => { active = false; };
+  }, [retryCount]);
 
   const getStatusIcon = (status) => {
     switch(status) {
-      case 'delivered': return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'shipped': return <Truck className="w-5 h-5 text-blue-500" />;
+      case 'delivered':
+      case 'confirmed': return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'out_for_delivery':
+      case 'dispatched': return <Truck className="w-5 h-5 text-blue-500" />;
       default: return <Clock className="w-5 h-5 text-orange-500" />;
     }
   };
 
   const getStatusBadge = (status) => {
     switch(status) {
-      case 'delivered': return 'bg-green-100 text-green-700';
-      case 'shipped': return 'bg-blue-100 text-blue-700';
+      case 'delivered':
+      case 'confirmed': return 'bg-green-100 text-green-700';
+      case 'out_for_delivery':
+      case 'dispatched': return 'bg-blue-100 text-blue-700';
       default: return 'bg-orange-100 text-orange-700';
     }
   };
@@ -48,12 +69,30 @@ export default function OrderHistory() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6">
+        <p className="text-red-700">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            setRetryCount((count) => count + 1);
+          }}
+          className="mt-3 font-semibold text-red-800 underline"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
         <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
         <h3 className="text-xl font-bold text-gray-900 mb-2">No active rentals</h3>
-        <p className="text-gray-500">You haven't rented any clothes yet. Explore our AI try-on to find your perfect fit!</p>
+        <p className="text-gray-500">You haven't rented any clothes yet. Explore our rentals to find your next favorite look!</p>
       </div>
     );
   }
@@ -62,11 +101,11 @@ export default function OrderHistory() {
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Order History</h2>
       {orders.map((order) => (
-        <div key={order.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <div key={order._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-gray-50 pb-4 mb-4">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="font-bold text-gray-900">{order.id}</span>
+                <span className="font-bold text-gray-900">{order.bookingNumber}</span>
                 <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${getStatusBadge(order.status)}`}>
                   {getStatusIcon(order.status)}
                   {order.status}
@@ -77,7 +116,7 @@ export default function OrderHistory() {
             <div className="text-right">
               <p className="text-sm text-gray-500 mb-1">Total Amount</p>
               <p className="text-xl font-black text-gray-900 border-b-2 border-transparent w-fit md:ml-auto focus:border-purple-600 transition-colors">
-                ₹{order.totalAmount || order.pricing?.total || 0}
+                ₹{((order.pricing?.grandTotal || 0) / 100).toLocaleString('en-IN')}
               </p>
             </div>
           </div>
@@ -85,18 +124,18 @@ export default function OrderHistory() {
           <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white rounded-lg shadow-sm border border-gray-100 flex overflow-hidden">
-                 {order.items && order.items[0]?.image ? (
-                   <img src={order.items[0].image} className="w-full h-full object-cover" alt="item" />
+                 {order.items && order.items[0]?.imageSnapshot ? (
+                   <img src={order.items[0].imageSnapshot} className="w-full h-full object-cover" alt="item" />
                  ) : (
                    <Package className="w-6 h-6 text-purple-600 m-auto" />
                  )}
               </div>
               <div>
-                <h4 className="font-bold text-gray-900">{order.items && order.items[0]?.name ? order.items[0].name : "Outfit Combination"}</h4>
+                <h4 className="font-bold text-gray-900">{order.items && order.items[0]?.titleSnapshot ? order.items[0].titleSnapshot : "Rental booking"}</h4>
                 <p className="text-sm text-gray-500">{order.items ? order.items.length : 1} Items</p>
               </div>
             </div>
-            <button className="px-5 py-2 text-sm font-bold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200">
+            <button onClick={() => downloadInvoice(order._id)} className="px-5 py-2 text-sm font-bold text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200">
               View Invoice
             </button>
           </div>

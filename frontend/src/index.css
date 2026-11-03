@@ -35,6 +35,15 @@
   --transition-slow: 400ms cubic-bezier(.4, 0, .2, 1);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-surface: #1e293b;
+  --color-bg: #0f172a;
+  --color-text: #f1f5f9;
+  --color-muted: #94a3b8;
+  --color-border: #334155;
+}
+
 /* ── Base Reset ────────────────────────────────────────────────── */
 *,
 *::before,
@@ -56,6 +65,145 @@ body {
   background: var(--color-bg);
   line-height: 1.6;
   overflow-x: hidden;
+  transition: color 200ms ease, background-color 200ms ease;
+}
+
+/* Adapt common Tailwind light surfaces and text colors for the selected theme. */
+:root[data-theme="dark"] [class~="from-slate-50"][class~="to-slate-100"] {
+  color: var(--color-text);
+  background-image: linear-gradient(135deg, #0f172a, #111827) !important;
+}
+
+:root[data-theme="dark"] [class~="bg-white"] {
+  background-color: #1e293b !important;
+}
+
+:root[data-theme="dark"] [class*="bg-white/"] {
+  background-color: rgba(30, 41, 59, 0.9) !important;
+}
+
+:root[data-theme="dark"] [class~="bg-gray-50"],
+:root[data-theme="dark"] [class~="bg-slate-50"] {
+  background-color: #111827 !important;
+}
+
+:root[data-theme="dark"] [class~="bg-gray-100"],
+:root[data-theme="dark"] [class~="bg-slate-100"],
+:root[data-theme="dark"] [class*="bg-slate-100/"] {
+  background-color: #1f2937 !important;
+}
+
+:root[data-theme="dark"] [class~="bg-gray-200"],
+:root[data-theme="dark"] [class~="bg-slate-200"] {
+  background-color: #334155 !important;
+}
+
+:root[data-theme="dark"] [class~="bg-purple-50"],
+:root[data-theme="dark"] [class~="bg-pink-50"],
+:root[data-theme="dark"] [class~="bg-indigo-50"] {
+  background-color: #312e4b !important;
+}
+
+:root[data-theme="dark"] [class~="text-gray-900"],
+:root[data-theme="dark"] [class~="text-gray-800"],
+:root[data-theme="dark"] [class~="text-gray-700"],
+:root[data-theme="dark"] [class~="text-slate-900"] {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme="dark"] [class~="text-gray-600"],
+:root[data-theme="dark"] [class~="text-gray-500"],
+:root[data-theme="dark"] [class~="text-slate-600"],
+:root[data-theme="dark"] [class~="text-slate-500"] {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] [class~="border-gray-100"],
+:root[data-theme="dark"] [class~="border-gray-200"],
+:root[data-theme="dark"] [class~="border-slate-100"],
+:root[data-theme="dark"] [class~="border-slate-200"],
+:root[data-theme="dark"] [class*="border-white/"] {
+  border-color: #334155 !important;
+}
+
+:root[data-theme="dark"] .product-size-select {
+  color-scheme: dark;
+  color: #f1f5f9 !important;
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+:root[data-theme="dark"] .product-size-select option {
+  color: #f1f5f9;
+  background-color: #1e293b;
+}
+
+:root:not([data-theme="dark"]) .product-size-select option {
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+:root[data-theme="dark"] .home-hero {
+  background-image: linear-gradient(135deg, #111827 0%, #1e1b4b 55%, #312e81 100%) !important;
+}
+
+:root[data-theme="dark"] .discover-mesh {
+  background-image: linear-gradient(to bottom, #1e1b4b, rgba(49, 46, 75, 0.62), transparent) !important;
+}
+
+:root[data-theme="dark"] .about-hero-fade {
+  background-image: linear-gradient(to bottom, transparent, #0f172a) !important;
+}
+
+:root[data-theme="dark"] .featured-section {
+  background-color: #111827 !important;
+  background-image: none !important;
+}
+
+:root[data-theme="dark"] .featured-glow {
+  display: none;
+}
+
+:root[data-theme="dark"] .category-section {
+  background-image: linear-gradient(135deg, #111827 0%, #1e1b4b 55%, #312e81 100%) !important;
+}
+
+:root[data-theme="dark"] .category-section-title {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme="dark"] .category-section-desc {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .about-hero > div:first-child {
+  background-color: #111827 !important;
+}
+
+:root[data-theme="dark"] .theme-bubbles .particle {
+  background: rgba(216, 180, 254, 0.48);
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.45);
+}
+
+:root[data-theme="dark"] .mobile-drawer-link:hover,
+:root[data-theme="dark"] .mobile-drawer-link:focus-visible {
+  color: #f1f5f9 !important;
+  background-color: #334155 !important;
+}
+
+@media (hover: none) {
+  .mobile-drawer-link:hover {
+    background-color: transparent !important;
+  }
+
+  .mobile-drawer-link:active {
+    background-color: rgba(148, 163, 184, 0.14) !important;
+  }
+}
+
+:root[data-theme="dark"] .glass {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(148, 163, 184, 0.24);
 }
 
 /* ── Skeleton shimmer animation ────────────────────────────────── */
@@ -192,6 +340,67 @@ img {
   border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
+.admin-status-badge {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+  text-transform: capitalize;
+}
+
+.admin-status-success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.admin-status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-status-danger {
+  background: #ffe4e6;
+  color: #9f1239;
+}
+
+.admin-status-neutral {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+:root[data-theme="dark"] .admin-status-success {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
+:root[data-theme="dark"] .admin-status-pending {
+  background: #78350f;
+  color: #fde68a;
+}
+
+:root[data-theme="dark"] .admin-status-danger {
+  background: #881337;
+  color: #fecdd3;
+}
+
+:root[data-theme="dark"] .admin-status-neutral {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .admin-nav-button:not([aria-current="page"]):hover,
+:root[data-theme="dark"] .admin-nav-button:not([aria-current="page"]):focus-visible {
+  background-color: #334155;
+  color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .admin-nav-button[aria-current="page"] {
+  background-color: #312e4b;
+  color: #d8b4fe;
+}
+
 /* ── Price range slider ────────────────────────────────────────── */
 input[type="range"] {
   -webkit-appearance: none;
@@ -260,6 +469,12 @@ input[type="range"]::-webkit-slider-thumb {
   background: rgba(255, 255, 255, 0.25);
   animation: particle-drift linear infinite;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particle {
+    animation: none;
+  }
 }
 
 /* ── Generic Animations ────────────────────────────────────────── */

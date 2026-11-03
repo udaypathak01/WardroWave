@@ -1,0 +1,44 @@
+services:
+  mongodb:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - wardrowave_mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./scripts/mongo-init-replica.sh:/scripts/mongo-init-replica.sh:ro
+    entrypoint: ["bash", "/scripts/mongo-init-replica.sh"]
+    restart: "no"
+
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/wardrowave?replicaSet=rs0
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  wardrowave_mongodb:

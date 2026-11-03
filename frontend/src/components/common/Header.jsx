@@ -1,15 +1,18 @@
-import { ShoppingCart, Heart, Search, Menu, X, User, LogOut, Clock, TrendingUp, Tag, ChevronRight, Package, Settings } from 'lucide-react';
+import { ShoppingCart, Heart, Search, Menu, X, LogOut, TrendingUp, Tag, ChevronRight, Package, Settings, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useWishlist } from '../../context api/WishlistContext';
 import { useCart } from '../../context api/CartContext';
 import { useAuth } from '../../context api/AuthContext';
 import { useNavigate, NavLink } from 'react-router-dom';
-import { RENTAL_ITEMS } from '../../data/productsData';
+import { useCategoriesQuery, useFeaturedProductsQuery, useProductsQuery } from '../../lib/api/hooks';
+import { useTheme } from '../../context api/theme';
 
-// Mock Search Data
-const RECENT_SEARCHES = ['Wedding Lehenga', 'Tuxedo', 'Saree'];
-const TRENDING_ITEMS = ['Manish Malhotra Red Lehenga', 'Armani Navy Suit', 'Sabyasachi Floral Modal'];
-const CATEGORIES = ['Lehenga', 'Suit', 'Western Wear', 'Accessories'];
+function flattenCategories(categories = []) {
+  return categories.flatMap((category) => [
+    category,
+    ...flattenCategories(category.children || []),
+  ]);
+}
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +22,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   
   const searchRef = useRef(null);
   const drawerRef = useRef(null);
@@ -27,7 +30,10 @@ export default function Header() {
   const { wishlistCount } = useWishlist();
   const { cartCount } = useCart();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const categoriesQuery = useCategoriesQuery();
+  const featuredQuery = useFeaturedProductsQuery();
 
   // Handle glass header scroll effect
   useEffect(() => {
@@ -36,27 +42,37 @@ export default function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Debounced intelligent search
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const uniqueSuggestions = new Set();
-        
-        RENTAL_ITEMS.forEach(item => {
-          if (item.name.toLowerCase().includes(query)) uniqueSuggestions.add(item.name);
-          if (item.category.toLowerCase().includes(query)) {
-            uniqueSuggestions.add(`${item.category.charAt(0).toUpperCase()}${item.category.slice(1)}`);
-          }
-        });
-
-        setSuggestions(Array.from(uniqueSuggestions).slice(0, 8));
-      } else {
-        setSuggestions([]);
-      }
+      setDebouncedSearch(searchQuery.trim());
     }, 250); // Fast 250ms debounce
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const searchEnabled = Boolean(debouncedSearch && (isSearchFocused || isMobileSearchOpen));
+  const searchQueryResult = useProductsQuery(
+    { q: debouncedSearch, limit: 8, sort: 'popular' },
+    searchEnabled,
+  );
+  const availableCategories = flattenCategories(categoriesQuery.data?.data || []);
+  const matchingCategories = debouncedSearch
+    ? availableCategories.filter((category) =>
+      category.name.toLowerCase().includes(debouncedSearch.toLowerCase()),
+    )
+    : availableCategories;
+  const productSuggestions = (searchQueryResult.data?.data || []).map((product) => ({
+    label: product.title,
+  }));
+  const categorySuggestions = matchingCategories.slice(0, 5).map((category) => ({
+    label: category.name,
+    categoryId: category._id,
+  }));
+  const suggestions = [...categorySuggestions, ...productSuggestions]
+    .filter((suggestion, index, list) =>
+      list.findIndex((entry) => entry.label === suggestion.label) === index,
+    )
+    .slice(0, 8);
+  const featuredItems = (featuredQuery.data?.data || []).slice(0, 4);
 
   // Handle global click outside to close dropdowns and drawers
   useEffect(() => {
@@ -95,8 +111,12 @@ export default function Header() {
   };
 
   const handleSuggestionClick = (suggestion) => {
-    setSearchQuery(suggestion);
-    navigate('/rentals', { state: { searchQuery: suggestion } });
+    const label = typeof suggestion === 'string' ? suggestion : suggestion.label;
+    navigate('/rentals', {
+      state: suggestion.categoryId
+        ? { categoryId: suggestion.categoryId }
+        : { searchQuery: label },
+    });
     setSearchQuery('');
     setIsSearchFocused(false);
     setIsMobileSearchOpen(false);
@@ -110,7 +130,7 @@ export default function Header() {
   };
 
   // Safe display name
-  const displayName = user?.fullName || user?.displayName || user?.email?.split('@')[0] || 'User';
+  const displayName = user?.name || user?.fullName || user?.displayName || user?.email?.split('@')[0] || 'User';
 
   const navLinkClass = ({ isActive }) =>
     `text-sm font-medium transition ${
@@ -128,58 +148,61 @@ export default function Header() {
       <div className={`${isMobile ? 'flex-1 overflow-y-auto mt-2 pb-24' : 'absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden transform opacity-100 scale-100 transition-all origin-top'}`}>
         {!searchQuery.trim() ? (
           <div className={`p-4 md:p-5 bg-white space-y-6 ${isMobile ? '' : 'max-h-[70vh] overflow-y-auto'}`}>
-            {/* Recent Searches */}
-            <div>
-              <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" /> Recent Searches
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {RECENT_SEARCHES.map(term => (
-                  <button key={term} onClick={() => handleSuggestionClick(term)} className="px-3.5 py-1.5 bg-gray-50 border border-gray-100/50 text-gray-600 text-[13px] font-medium rounded-lg hover:bg-gray-100 hover:text-gray-900 transition active:scale-95">
-                    {term}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Trending Items */}
-            <div>
-              <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-pink-500" /> Trending Now
-              </h4>
-              <ul className="space-y-1">
-                {TRENDING_ITEMS.map((item, idx) => (
-                  <li key={idx}>
-                    <button onClick={() => handleSuggestionClick(item)} className="w-full text-left px-3.5 py-2.5 hover:bg-purple-50 rounded-xl text-[14px] font-medium text-gray-800 transition flex items-center gap-3 group">
-                      <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white transition-colors shrink-0">
-                        <Search className="w-3 h-3 text-gray-400" />
-                      </div>
-                      <span className="truncate">{item}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Categories */}
+            {/* Categories supplied by the catalog API */}
             <div>
               <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5" /> Shop by Category
               </h4>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map(cat => (
-                  <button key={cat} onClick={() => handleSuggestionClick(cat)} className="px-3.5 py-1.5 border border-gray-200 text-gray-600 text-[13px] font-medium rounded-lg hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 transition active:scale-95">
-                    {cat}
+                {matchingCategories.slice(0, 10).map((category) => (
+                  <button key={category._id} onClick={() => handleSuggestionClick({ label: category.name, categoryId: category._id })} className="px-3.5 py-1.5 bg-gray-50 border border-gray-100/50 text-gray-600 text-[13px] font-medium rounded-lg hover:bg-gray-100 hover:text-gray-900 transition active:scale-95">
+                    {category.name}
                   </button>
                 ))}
+                {categoriesQuery.isError && (
+                  <span role="alert" className="text-sm text-gray-500">
+                    Categories couldn't be loaded.
+                    <button onClick={() => categoriesQuery.refetch()} className="ml-1 font-semibold text-purple-600 underline">
+                      Retry
+                    </button>
+                  </span>
+                )}
               </div>
+            </div>
+
+            {/* Featured products supplied by the catalog API */}
+            <div>
+              <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-pink-500" /> Featured rentals
+              </h4>
+              <ul className="space-y-1">
+                {featuredItems.map((item) => (
+                  <li key={item._id}>
+                    <button onClick={() => handleSuggestionClick(item.title)} className="w-full text-left px-3.5 py-2.5 hover:bg-purple-50 rounded-xl text-[14px] font-medium text-gray-800 transition flex items-center gap-3 group">
+                      <div className="w-6 h-6 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white transition-colors shrink-0">
+                        <Search className="w-3 h-3 text-gray-400" />
+                      </div>
+                      <span className="truncate">{item.title}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         ) : (
           <div className={`bg-white ${isMobile ? '' : 'max-h-[60vh] overflow-y-auto'}`}>
             <div className="p-2">
               <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-3 pt-2">Suggestions</h4>
-              {suggestions.length > 0 ? (
+              {searchQueryResult.isPending && searchEnabled ? (
+                <div className="p-8 text-center text-gray-500 text-sm font-medium">Searching the collection…</div>
+              ) : searchQueryResult.isError ? (
+                <div role="alert" className="p-8 text-center text-gray-500 text-sm font-medium">
+                  Search suggestions couldn't be loaded.
+                  <button onClick={() => searchQueryResult.refetch()} className="ml-1 font-semibold text-purple-600 underline">
+                    Retry
+                  </button>
+                </div>
+              ) : suggestions.length > 0 ? (
                 suggestions.map((suggestion, index) => (
                   <button
                     key={index}
@@ -187,7 +210,7 @@ export default function Header() {
                     className="w-full px-4 py-3 text-left hover:bg-purple-50 rounded-xl transition flex items-center gap-3"
                   >
                     <Search className="w-4 h-4 text-purple-400 shrink-0" />
-                    <span className="text-gray-800 text-sm font-medium">{suggestion}</span>
+                    <span className="text-gray-800 text-sm font-medium">{suggestion.label}</span>
                     <span className="text-[10px] uppercase font-bold text-gray-400 ml-auto bg-gray-50 px-2 py-1 rounded-md hidden sm:block">Return</span>
                   </button>
                 ))
@@ -272,6 +295,17 @@ export default function Header() {
 
         {/* Right Side Tools */}
         <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2.5 hover:bg-slate-100 rounded-full transition active:scale-95"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light'
+              ? <Moon className="w-[20px] h-[20px] text-gray-800" />
+              : <Sun className="w-[20px] h-[20px] text-gray-800" />}
+          </button>
           
           {/* Desktop Search Bar */}
           <div className="hidden xl:flex relative w-64 xl:w-80" ref={searchRef}>
@@ -335,6 +369,15 @@ export default function Header() {
           {/* Desktop User / Auth Profiles */}
           {user ? (
             <div className="hidden md:flex ml-2 border-l border-gray-200 pl-4 items-center gap-3">
+              {['admin', 'superadmin'].includes(user.role) && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin')}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-purple-700 transition hover:bg-purple-50"
+                >
+                  <ShieldCheck className="h-4 w-4" />Admin
+                </button>
+              )}
               <button
                 onClick={() => navigate('/profile')}
                 className="flex items-center gap-2 pl-1 pr-3 py-1 bg-slate-50 border border-slate-100 rounded-full hover:bg-purple-50 hover:border-purple-100 transition group"
@@ -433,11 +476,11 @@ export default function Header() {
           <div>
             <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 pl-1">Shop</h4>
             <div className="space-y-1">
-              <NavLink to="/discover" onClick={() => setIsOpen(false)} className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
+              <NavLink to="/discover" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
                 <div className="flex items-center gap-3"><Tag className="w-[20px] h-[20px] text-gray-400"/> Collections</div>
                 <ChevronRight className="w-4 h-4 text-gray-300"/>
               </NavLink>
-              <NavLink to="/rentals" onClick={() => setIsOpen(false)} className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
+              <NavLink to="/rentals" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
                 <div className="flex items-center gap-3"><Search className="w-[20px] h-[20px] text-gray-400"/> Explore Rentals</div>
                 <ChevronRight className="w-4 h-4 text-gray-300"/>
               </NavLink>
@@ -447,18 +490,24 @@ export default function Header() {
           <div>
             <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 pl-1">My Account</h4>
             <div className="space-y-1">
-              <NavLink to="/orders" onClick={() => setIsOpen(false)} className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
+              <NavLink to="/orders" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
                 <div className="flex items-center gap-3"><Package className="w-[20px] h-[20px] text-gray-400"/> Orders & Returns</div>
                 <ChevronRight className="w-4 h-4 text-gray-300"/>
               </NavLink>
-              <NavLink to="/wishlist" onClick={() => setIsOpen(false)} className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
+              <NavLink to="/wishlist" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
                 <div className="flex items-center gap-3"><Heart className="w-[20px] h-[20px] text-gray-400"/> Wishlist {wishlistCount > 0 && <span className="text-[10px] bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full ml-1">{wishlistCount}</span>}</div>
                 <ChevronRight className="w-4 h-4 text-gray-300"/>
               </NavLink>
-              <NavLink to="/settings" onClick={() => setIsOpen(false)} className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
+              <NavLink to="/settings" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold active:scale-[0.98] transition">
                 <div className="flex items-center gap-3"><Settings className="w-[20px] h-[20px] text-gray-400"/> Settings</div>
                 <ChevronRight className="w-4 h-4 text-gray-300"/>
               </NavLink>
+              {['admin', 'superadmin'].includes(user?.role) && (
+                <NavLink to="/admin" onClick={() => setIsOpen(false)} className="mobile-drawer-link flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 text-purple-700 font-semibold active:scale-[0.98] transition">
+                  <div className="flex items-center gap-3"><ShieldCheck className="w-[20px] h-[20px]"/> Admin panel</div>
+                  <ChevronRight className="w-4 h-4 text-gray-300"/>
+                </NavLink>
+              )}
             </div>
           </div>
 

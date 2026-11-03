@@ -1,0 +1,24 @@
+import { Router } from 'express';
+import { authenticate } from '../middlewares/authenticate.js';
+import { bookingController } from '../controllers/booking.controller.js';
+import { quoteController } from '../controllers/quote.controller.js';
+import { validate } from '../middlewares/validate.js';
+import { quoteSchema } from '../validators/quote.validator.js';
+import { createBookingSchema } from '../validators/booking.validator.js';
+import { paginationQuery } from '../validators/common.validator.js';
+import { cancellationSchema } from '../validators/cancellation.validator.js';
+import { bookingParamsSchema } from '../validators/availability.validator.js';
+import { returnRequestSchema } from '../validators/fulfillment.validator.js';
+import { checkoutRateLimiter } from '../middlewares/rateLimiters.js';
+
+const router = Router();
+router.use(authenticate);
+router.get('/', validate(paginationQuery, 'query'), bookingController.list);
+router.post('/quote', validate(quoteSchema), quoteController.create);
+router.post('/', checkoutRateLimiter, validate(createBookingSchema), bookingController.create);
+router.post('/:id/cancel', validate(bookingParamsSchema, 'params'), validate(cancellationSchema), bookingController.cancel);
+router.post('/:id/retry-payment', validate(bookingParamsSchema, 'params'), bookingController.retryPayment);
+router.post('/:id/return', validate(bookingParamsSchema, 'params'), validate(returnRequestSchema), bookingController.requestReturn);
+router.get('/:id/invoice', validate(bookingParamsSchema, 'params'), bookingController.invoice);
+router.get('/:id', validate(bookingParamsSchema, 'params'), bookingController.getOne);
+export default router;

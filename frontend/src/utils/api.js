@@ -1,175 +1,178 @@
-// src/utils/api.js
-// Axios-like wrapper for all backend API calls
-// Automatically attaches the Firebase ID token to every request
+import { api as backendApi } from '../lib/api/api';
 
-import { auth } from '../config/firebase';
-
-const BASE_URL = '/api';
-
-// ─── Core Fetcher ─────────────────────────────────────────────────────────────
-
-const request = async (method, endpoint, body = null) => {
-  // Get fresh Firebase token (auto-refreshes if expired)
-  let token = null;
-  let currentUser = auth.currentUser;
-  
-  if (currentUser) {
-    try {
-      console.log(`[API] User logged in (${currentUser.email}), getting token for ${method} ${endpoint}`);
-      // Force token refresh to ensure it's valid
-      token = await currentUser.getIdToken(true);
-      console.log(`[API] ✅ Token obtained (${token.substring(0, 20)}...)`);
-    } catch (tokenErr) {
-      console.error(`[API] ❌ Failed to get Firebase token:`, tokenErr.message, tokenErr.code);
-      // If token retrieval fails, check if it's a network issue or auth issue
-      if (tokenErr.code === 'auth/network-request-failed') {
-        console.warn('[API] Network error getting token - Firebase might be unreachable');
-      } else if (tokenErr.code === 'auth/invalid-user-token' || tokenErr.code === 'auth/user-token-expired') {
-        console.warn('[API] User token is invalid or expired - user may need to re-authenticate');
-      }
-    }
-  } else {
-    console.debug(`[API] No authenticated user, making ${method} ${endpoint} without token`);
+const legacyResponse = async (result) => {
+  const resolved = await result;
+  if (resolved && typeof resolved === 'object' && 'data' in resolved) {
+    return { success: true, ...resolved };
   }
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
-
-  const config = { method, headers };
-  if (body) config.body = JSON.stringify(body);
-
-  try {
-    const fullUrl = `${BASE_URL}${endpoint}`;
-    console.log(`[API] ${method} ${fullUrl}`, token ? { auth: 'Yes' } : { auth: 'No' });
-    
-    const res = await fetch(fullUrl, config);
-    
-    // Check if response has content
-    const contentType = res.headers.get('content-type');
-    let data = null;
-    
-    if (contentType && contentType.includes('application/json')) {
-      const text = await res.text();
-      if (text) {
-        try {
-          data = JSON.parse(text);
-        } catch (parseErr) {
-          console.error('JSON parse error:', parseErr);
-          const err = new Error('Invalid JSON response from server');
-          err.status = res.status;
-          throw err;
-        }
-      }
-    }
-
-    if (!res.ok) {
-      const err = new Error(data?.message || `HTTP ${res.status}`);
-      err.status = res.status;
-      err.data = data;
-      
-      // Log detailed error info for debugging
-      if (res.status === 401) {
-        console.error(`[API] ❌ 401 Unauthorized on ${endpoint}:`, {
-          status: res.status,
-          message: data?.message,
-          hasToken: !!token,
-          tokenLength: token ? token.length : 0,
-          code: data?.code
-        });
-      } else if (res.status >= 400) {
-        console.error(`[API] ❌ ${res.status} on ${endpoint}:`, data?.message);
-      }
-      
-      throw err;
-    }
-
-    console.log(`[API] ✅ ${res.status} ${method} ${endpoint}`);
-    return data || { success: true };
-  } catch (err) {
-    if (err instanceof TypeError) {
-      console.error('[API] ❌ Network error - Cannot reach server:', err.message);
-      throw new Error('Cannot reach server. Is the backend running?');
-    }
-    throw err;
-  }
+  return { success: true, data: resolved };
 };
 
-const get    = (url)          => request('GET',    url);
-const post   = (url, body)    => request('POST',   url, body);
-const put    = (url, body)    => request('PUT',    url, body);
-const del    = (url)          => request('DELETE', url);
+export function getRentalDate(offsetDays = 1) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
-// ─── Auth API ─────────────────────────────────────────────────────────────────
+export function rentalCalendarDate(value) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
+}
+
+export function addRentalDays(startDate, offsetDays) {
+  const [year, month, day] = rentalCalendarDate(startDate).split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + offsetDays));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+export function mapCatalogProduct(product) {
+  if (!product) return null;
+  const image = product.primaryImage?.url
+    || product.images?.find((entry) => entry.isPrimary)?.url
+    || product.images?.[0]?.url
+    || '';
+  return {
+    ...product,
+    id: product._id || product.id,
+    name: product.title || product.name || '',
+    category: product.category?.name || product.category || '',
+    categorySlug: product.category?.slug || '',
+    image,
+    rentalPrice: Number(product.pricing?.basePrice ?? product.price ?? 0) / 100,
+    originalPrice: Number(product.pricing?.retailValue ?? product.originalPrice ?? 0) / 100,
+    rating: product.ratingSummary?.average ?? product.ratingAvg ?? product.rating ?? 0,
+    reviews: product.ratingSummary?.count ?? product.ratingCount ?? product.reviews ?? 0,
+    duration: product.pricing?.minRentalDays ?? 3,
+    inStock: product.inStock ?? (
+      product.variants
+        ? product.variants.some((variant) => variant.active !== false && variant.isActive !== false)
+        : true
+    ),
+  };
+}
 
 export const authAPI = {
-  // Call after Firebase signup/login to create/sync Firestore profile
-  syncProfile:  (data)   => post('/auth/sync-profile', data),
-  getMe:        ()       => get('/auth/me'),
-  updateGender: (data)   => post('/auth/update-gender', data),
-  logout:       ()       => post('/auth/logout'),
-  deleteAccount:()       => del('/auth/delete-account'),
+  syncProfile: (data = {}) => legacyResponse(backendApi.auth.sync(data.phone)),
+  getMe: () => legacyResponse(backendApi.auth.me()),
+  updateGender: (data) => legacyResponse(backendApi.auth.update(data)),
+  logout: () => Promise.resolve({ success: true }),
+  deleteAccount: () => legacyResponse(backendApi.auth.delete()),
 };
-
-// ─── User API ─────────────────────────────────────────────────────────────────
 
 export const userAPI = {
-  getProfile:     ()           => get('/users/profile'),
-  updateProfile:  (data)       => put('/users/profile', data),
-  getAddresses:   ()           => get('/users/addresses'),
-  addAddress:     (address)    => post('/users/addresses', address),
-  updateAddress:  (id, data)   => put(`/users/addresses/${id}`, data),
-  deleteAddress:  (id)         => del(`/users/addresses/${id}`),
+  getProfile: () => legacyResponse(backendApi.users.me()),
+  updateProfile: (data) => legacyResponse(backendApi.users.update(data)),
+  getAddresses: () => legacyResponse(backendApi.users.addresses.list()),
+  addAddress: (address) => {
+    const payload = {
+      label: address.label || 'Home',
+      fullName: address.fullName || address.name || '',
+      phone: address.phone?.startsWith('+')
+        ? address.phone
+        : `+91${(address.phone || '').replace(/\D/g, '').replace(/^91/, '')}`,
+      line1: address.line1 || address.addressLine1 || address.street || '',
+      line2: address.line2 || address.addressLine2 || '',
+      landmark: address.landmark || '',
+      city: address.city || '',
+      state: address.state || '',
+      pincode: address.pincode || '',
+      isDefault: Boolean(address.isDefault),
+    };
+    return legacyResponse(backendApi.users.addresses.add(payload));
+  },
+  updateAddress: (id, address) => {
+    const payload = {
+      ...(address.label && { label: address.label }),
+      ...(address.fullName && { fullName: address.fullName }),
+      ...(address.phone && {
+        phone: address.phone.startsWith('+')
+          ? address.phone
+          : `+91${address.phone.replace(/\D/g, '').replace(/^91/, '')}`,
+      }),
+      ...((address.line1 || address.addressLine1) && {
+        line1: address.line1 || address.addressLine1,
+      }),
+      ...((address.line2 || address.addressLine2) && {
+        line2: address.line2 || address.addressLine2,
+      }),
+      ...(address.landmark && { landmark: address.landmark }),
+      ...(address.city && { city: address.city }),
+      ...(address.state && { state: address.state }),
+      ...(address.pincode && { pincode: address.pincode }),
+      ...(address.isDefault !== undefined && { isDefault: address.isDefault }),
+    };
+    return legacyResponse(backendApi.users.addresses.update(id, payload));
+  },
+  deleteAddress: (id) => legacyResponse(backendApi.users.addresses.remove(id)),
 };
-
-// ─── Products API ─────────────────────────────────────────────────────────────
 
 export const productAPI = {
-  getAll: (params = {}) => {
-    const qs = new URLSearchParams(params).toString();
-    return get(`/products${qs ? `?${qs}` : ''}`);
-  },
-  getFeatured:  ()           => get('/products/featured'),
-  getCategories:()           => get('/products/categories'),
-  getById:      (id)         => get(`/products/${id}`),
-  create:       (data)       => post('/products', data),
-  update:       (id, data)   => put(`/products/${id}`, data),
-  delete:       (id)         => del(`/products/${id}`),
-  addReview:    (id, data)   => post(`/products/${id}/review`, data),
+  getAll: (params = {}) => legacyResponse(backendApi.catalog.products(params)),
+  getFeatured: (params = {}) => legacyResponse(backendApi.catalog.featured(params)),
+  getSimilar: (slug) => legacyResponse(backendApi.catalog.similar(slug)),
+  getCategories: () => legacyResponse(backendApi.catalog.categories()),
+  getById: (slug) => legacyResponse(backendApi.catalog.product(slug)),
+  getAvailability: (slug, variantId, from, to) =>
+    legacyResponse(backendApi.catalog.availability(slug, variantId, from, to)),
+  create: (data) => legacyResponse(backendApi.catalog.create(data)),
+  update: (id, data) => legacyResponse(backendApi.catalog.update(id, data)),
+  delete: (id) => legacyResponse(backendApi.catalog.delete(id)),
+  addReview: (productId, data) =>
+    legacyResponse(backendApi.catalog.addReview(productId, data)),
 };
-
-// ─── Cart API ─────────────────────────────────────────────────────────────────
 
 export const cartAPI = {
-  get:     ()                                          => get('/cart'),
-  add:     (productId, quantity=1, rentalDays=3, size='') => post('/cart/add', { productId, quantity, rentalDays, size }),
-  update:  (productId, updates)                        => put(`/cart/update/${productId}`, updates),
-  remove:  (productId)                                 => del(`/cart/remove/${productId}`),
-  clear:   ()                                          => del('/cart/clear'),
+  get: () => legacyResponse(backendApi.cart.get()),
+  add: (variantId, _quantity = 1, rentalDays = 3, options = {}) => {
+    const startDate = options.startDate || getRentalDate(1);
+    const endDate = options.endDate || addRentalDays(startDate, Number(rentalDays) - 1);
+    return legacyResponse(backendApi.cart.add({ variantId, startDate, endDate }));
+  },
+  remove: (itemId) => legacyResponse(backendApi.cart.remove(itemId)),
+  clear: () => legacyResponse(backendApi.cart.clear()),
+  applyCoupon: (couponCode) => legacyResponse(backendApi.cart.applyCoupon(couponCode)),
 };
-
-// ─── Wishlist API ─────────────────────────────────────────────────────────────
 
 export const wishlistAPI = {
-  get:     ()           => get('/wishlist'),
-  toggle:  (productId)  => post('/wishlist/toggle', { productId }),
-  add:     (productId)  => post('/wishlist/add', { productId }),
-  remove:  (productId)  => del(`/wishlist/remove/${productId}`),
-  clear:   ()           => del('/wishlist/clear'),
+  get: () => legacyResponse(backendApi.wishlist.get()),
+  toggle: (productId, shouldAdd) =>
+    legacyResponse(shouldAdd
+      ? backendApi.wishlist.add(productId)
+      : backendApi.wishlist.remove(productId)),
+  add: (productId) => legacyResponse(backendApi.wishlist.add(productId)),
+  remove: (productId) => legacyResponse(backendApi.wishlist.remove(productId)),
+  clear: (productIds = []) => legacyResponse(Promise.all(
+    productIds.map((productId) => backendApi.wishlist.remove(productId)),
+  )),
 };
-
-// ─── Orders API ───────────────────────────────────────────────────────────────
 
 export const orderAPI = {
-  create:  (data)     => post('/orders', data),
-  getAll:  (params={}) => {
-    const qs = new URLSearchParams(params).toString();
-    return get(`/orders${qs ? `?${qs}` : ''}`);
-  },
-  getById: (orderId)  => get(`/orders/${orderId}`),
-  cancel:  (orderId, reason) => put(`/orders/${orderId}/cancel`, { reason }),
+  create: (data, idempotencyKey) =>
+    legacyResponse(backendApi.bookings.create(data, idempotencyKey)),
+  getQuote: (quoteData) => legacyResponse(backendApi.bookings.quote(quoteData)),
+  getAll: (params = {}) => legacyResponse(backendApi.bookings.list(params)),
+  getById: (bookingId) => legacyResponse(backendApi.bookings.get(bookingId)),
+  cancel: (bookingId, reason) =>
+    legacyResponse(backendApi.bookings.cancel(bookingId, reason)),
+  retryPayment: (bookingId) =>
+    legacyResponse(backendApi.bookings.retryPayment(bookingId)),
+  verifyPayment: (paymentData) =>
+    legacyResponse(backendApi.payments.verify(paymentData)),
+  getInvoice: (bookingId) => backendApi.bookings.invoice(bookingId),
 };
 
-const api = { auth: authAPI, user: userAPI, product: productAPI, cart: cartAPI, wishlist: wishlistAPI, order: orderAPI };
+const api = {
+  auth: authAPI,
+  user: userAPI,
+  product: productAPI,
+  cart: cartAPI,
+  wishlist: wishlistAPI,
+  order: orderAPI,
+};
+
 export default api;
