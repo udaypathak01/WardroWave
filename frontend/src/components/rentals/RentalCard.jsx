@@ -3,16 +3,14 @@ import { useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import gsap from "gsap";
 import { useWishlist } from "../../context api/WishlistContext";
-import { useCart } from "../../context api/CartContext";
 
 export default function RentalCard({ item }) {
   const navigate = useNavigate();
   const cardRef = useRef(null);
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const { addToCart } = useCart();
   const isFavorite = isInWishlist(item.id);
   const savings = item.originalPrice - item.rentalPrice;
-  const savingsPercent = Math.round((savings / item.originalPrice) * 100);
+  const savingsPercent = item.originalPrice > 0 ? Math.round((savings / item.originalPrice) * 100) : 0;
 
   useEffect(() => {
     if (cardRef.current) {
@@ -26,16 +24,16 @@ export default function RentalCard({ item }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full group card-lift hover:-translate-y-1">
-      <Link to={`/product/${item.id}`} className="relative h-48 sm:h-56 md:h-64 bg-gray-200 overflow-hidden block">
+      <Link to={`/product/${item.slug || item.id}`} className="relative h-48 sm:h-56 md:h-64 bg-gray-200 overflow-hidden block">
         <img
           src={item.image || item.images?.[0]?.url}
           alt={item.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+        {savingsPercent > 0 && <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
           Save {savingsPercent}%
-        </div>
+        </div>}
         {!item.inStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white font-bold text-lg">Not Available</span>
@@ -55,7 +53,7 @@ export default function RentalCard({ item }) {
       </Link>
 
       <div className="p-4 md:p-5 flex flex-col flex-grow">
-        <Link to={`/product/${item.id}`} className="hover:text-purple-600 transition-colors">
+        <Link to={`/product/${item.slug || item.id}`} className="hover:text-purple-600 transition-colors">
           <h3 className="font-bold text-gray-900 mb-2 text-sm sm:text-base line-clamp-2">
             {item.name}
           </h3>
@@ -94,7 +92,7 @@ export default function RentalCard({ item }) {
         </div>
 
         <button
-          onClick={(e) => { e.preventDefault(); navigate(`/product/${item.id}`); }}
+          onClick={(e) => { e.preventDefault(); navigate(`/product/${item.slug || item.id}`); }}
           disabled={!item.inStock}
           className="mt-auto w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-300 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98]"
         >

@@ -1,30 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Star, Sparkles, MoveRight } from "lucide-react";
 import { useWishlist } from "../../context api/WishlistContext";
 import { FadeIn, StaggerContainer, StaggerItem } from '../common/PageTransition';
-import api from "../../utils/api";
-
-const FALLBACK_PRODUCTS = [
-  {
-    id: 1, name: "Premium Formal Blazer", rentalPrice: 599, originalPrice: 2499, rating: 4.8, reviews: 128, category: "MENSWEAR", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&h=800&fit=crop"
-  },
-  {
-    id: 2, name: "Embroidered Kurti", rentalPrice: 399, originalPrice: 1299, rating: 4.9, reviews: 256, category: "ETHNIC", image: "https://images.unsplash.com/photo-1760287363878-1a09af715b80?w=600&h=800&fit=crop"
-  },
-  {
-    id: 3, name: "Designer Silk Saree", rentalPrice: 899, originalPrice: 3499, rating: 4.7, reviews: 167, category: "BRIDAL", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&h=800&fit=crop"
-  },
-  {
-    id: 4, name: "Traditional Kurta", rentalPrice: 549, originalPrice: 2199, rating: 4.9, reviews: 189, category: "FESTIVE", image: "https://images.unsplash.com/photo-1710242350089-65eef7e49364?w=600&h=800&fit=crop"
-  },
-  {
-    id: 5, name: "Midnight Blue Velvet", rentalPrice: 1299, originalPrice: 4599, rating: 5.0, reviews: 342, category: "LUXE", image: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=600&h=800&fit=crop"
-  },
-  {
-    id: 6, name: "Printed Summer Dress", rentalPrice: 349, originalPrice: 1199, rating: 4.6, reviews: 134, category: "CASUAL", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=800&fit=crop"
-  }
-];
+import { mapCatalogProduct } from "../../utils/api";
+import { useFeaturedProductsQuery } from "../../lib/api/hooks";
 
 function EditorialCard({ product }) {
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -32,7 +12,7 @@ function EditorialCard({ product }) {
 
   return (
     <Link 
-      to={`/product/${product.id}`}
+      to={`/product/${product.slug || product.id}`}
       className="block relative w-72 md:w-80 h-[28rem] md:h-[32rem] rounded-[32px] overflow-hidden group shrink-0 snap-center shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer"
     >
       <img
@@ -40,7 +20,11 @@ function EditorialCard({ product }) {
         alt={product.name}
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-110"
         loading="lazy"
-        onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=600&h=800&fit=crop'; }}
+        onError={(e) => {
+          if (!e.currentTarget.src.endsWith('/wardrowave_homepage_top_1774577009178.png')) {
+            e.currentTarget.src = '/wardrowave_homepage_top_1774577009178.png';
+          }
+        }}
       />
       
       {/* Dark Vignette Overlay */}
@@ -69,8 +53,12 @@ function EditorialCard({ product }) {
         
         <div className="flex items-center gap-1.5 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-          <span className="text-yellow-400 font-bold text-sm">{product.rating}</span>
-          <span className="text-gray-300 text-xs">({product.reviews})</span>
+          {product.reviews > 0 ? (
+            <>
+              <span className="text-yellow-400 font-bold text-sm">{product.rating}</span>
+              <span className="text-gray-300 text-xs">({product.reviews})</span>
+            </>
+          ) : <span className="text-gray-300 text-xs">No reviews yet</span>}
         </div>
 
         <div className="flex items-end justify-between backdrop-blur-md bg-white/10 p-4 rounded-2xl border border-white/20 relative overflow-hidden group/price">
@@ -92,35 +80,23 @@ function EditorialCard({ product }) {
 }
 
 export default function FeaturedProducts() {
-  const [products, setProducts] = useState(FALLBACK_PRODUCTS);
   const scrollRef = useRef(null);
-  const hasFetched = useRef(false);
-
-  useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    api.product.getFeatured()
-      .then(res => {
-        const items = res?.data?.products;
-        if (Array.isArray(items) && items.length > 0) setProducts(items);
-      })
-      .catch(() => { /* silently use fallback */ });
-  }, []);
+  const productsQuery = useFeaturedProductsQuery();
+  const products = (productsQuery.data?.data || []).map(mapCatalogProduct);
 
   return (
-    <section className="py-16 lg:py-20 bg-white relative overflow-hidden">
+    <section className="featured-section py-16 lg:py-20 bg-white relative overflow-hidden">
       {/* Optional mesh backorund */}
-      <div className="absolute top-[-20%] right-[-10%] w-[40%] h-[40%] bg-purple-100 rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
+      <div className="featured-glow absolute top-[-20%] right-[-10%] w-[40%] h-[40%] bg-purple-100 rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
 
       <div className="container mx-auto px-4 md:px-6 mb-12 relative z-10">
         <FadeIn className="flex flex-col md:flex-row justify-between items-center md:items-end gap-4 md:gap-6 text-center md:text-left">
           <div className="max-w-2xl flex flex-col items-center md:items-start">
             <span className="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-pink-50 text-pink-600 font-bold tracking-wider text-xs uppercase mb-4 border border-pink-100">
-              <Sparkles className="w-4 h-4" /> Trending AI Matches
+              <Sparkles className="w-4 h-4" /> Featured rentals
             </span>
             <h2 className="section-title text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-tight">
-              Top Picks For You
+              Featured Collection
             </h2>
           </div>
           <Link 
@@ -139,12 +115,16 @@ export default function FeaturedProducts() {
           className="flex gap-6 md:gap-8 overflow-x-auto snap-x snap-mandatory px-4 md:px-6 pb-12 pt-4 hide-scrollbar"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {/* Add a fake class for webkit hide scrollbar in index.css, or inline */}
-          <style dangerouslySetInnerHTML={{__html: `
-            .hide-scrollbar::-webkit-scrollbar { display: none; }
-          `}} />
-          
-          {products.map((product, idx) => (
+          {productsQuery.isPending ? (
+            <div className="px-8 py-12 text-gray-500">Loading featured rentals…</div>
+          ) : productsQuery.isError ? (
+            <div role="alert" className="px-8 py-12 text-gray-600">
+              Featured rentals couldn't be loaded.
+              <button onClick={() => productsQuery.refetch()} className="ml-2 font-semibold text-purple-600 underline">
+                Try again
+              </button>
+            </div>
+          ) : products.map((product, idx) => (
             <FadeIn key={product.id || idx} delay={idx * 0.1}>
               <EditorialCard product={product} />
             </FadeIn>

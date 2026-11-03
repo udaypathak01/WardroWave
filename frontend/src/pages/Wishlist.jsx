@@ -1,5 +1,4 @@
 import { Heart, ShoppingCart, Star, Trash2, ShoppingBag } from 'lucide-react';
-import { useEffect } from 'react';
 import { useWishlist } from '../context api/WishlistContext';
 
 import Header from '../components/common/Header';
@@ -8,8 +7,9 @@ import { useNavigate } from 'react-router-dom';
 
 function WishlistCard({ item }) {
   const { removeFromWishlist } = useWishlist();
+  const navigate = useNavigate();
   const savings = item.originalPrice - item.rentalPrice;
-  const savingsPercent = Math.round((savings / item.originalPrice) * 100);
+  const savingsPercent = item.originalPrice > 0 ? Math.max(0, Math.round((savings / item.originalPrice) * 100)) : 0;
 
   return (
     <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition overflow-hidden group">
@@ -19,11 +19,10 @@ function WishlistCard({ item }) {
           alt={item.name}
           className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
         />
-        <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+        {savingsPercent > 0 && <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
           Save {savingsPercent}%
-        </div>
-        <button 
-          onClick={() => removeFromWishlist(item.id)}
+        </div>}
+        <button onClick={() => removeFromWishlist(item.id)}
           className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition"
           title="Remove from wishlist"
         >
@@ -56,7 +55,7 @@ function WishlistCard({ item }) {
           )}
         </div>
 
-        <button 
+        <button onClick={() => navigate(`/product/${item.slug || item.id}`)}
           className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-pink-600 transition font-medium text-sm flex items-center justify-center gap-2"
         >
           <ShoppingCart className="w-4 h-4" />
@@ -68,12 +67,8 @@ function WishlistCard({ item }) {
 }
 
 export default function Wishlist() {
-  const { wishlist, clearWishlist } = useWishlist();
+  const { wishlist, clearWishlist, error, isLoading, refreshWishlist } = useWishlist();
   const navigate = useNavigate();
-
-  useEffect(() => {
-
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -94,7 +89,16 @@ export default function Wishlist() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
-        {wishlist.length > 0 ? (
+        {isLoading ? (
+          <div role="status" className="rounded-lg bg-white py-16 text-center text-gray-600">
+            Loading your wishlist…
+          </div>
+        ) : error ? (
+          <div role="alert" className="rounded-lg bg-white py-16 text-center text-gray-700">
+            <p className="mb-4">{error}</p>
+            <button onClick={refreshWishlist} className="font-semibold text-purple-600 underline">Retry</button>
+          </div>
+        ) : wishlist.length > 0 ? (
           <>
             {/* Action Bar */}
             <div className="flex justify-between items-center mb-6">

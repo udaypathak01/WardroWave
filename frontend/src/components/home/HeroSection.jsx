@@ -2,28 +2,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
-
-// Simple particles component
-function Particles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-      {[...Array(15)].map((_, i) => (
-        <div 
-          key={i} 
-          className="particle"
-          style={{
-            width: `${Math.random() * 8 + 4}px`,
-            height: `${Math.random() * 8 + 4}px`,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDuration: `${Math.random() * 20 + 10}s`,
-            animationDelay: `${Math.random() * -20}s`
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+import ThemeBubbles from '../common/ThemeBubbles';
 
 export default function HeroSection() {
   const navigate = useNavigate();
@@ -45,8 +24,8 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <section className="relative bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 pt-16 pb-16 lg:pt-12 lg:pb-12 overflow-hidden min-h-[calc(100vh-80px)] flex items-center">
-      <Particles />
+    <section className="home-hero relative bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 pt-16 pb-16 lg:pt-12 lg:pb-12 overflow-hidden min-h-[calc(100vh-80px)] flex items-center">
+      <ThemeBubbles />
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16 items-center">
           
@@ -57,7 +36,7 @@ export default function HeroSection() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 rounded-full text-purple-600 font-semibold text-sm mb-6 shadow-sm border border-purple-100 backdrop-blur-md"
             >
               <Sparkles className="w-4 h-4" />
-              <span>India's #1 Premium Fashion Rental</span>
+              <span>Premium Fashion Rentals</span>
             </div>
             
             <h1 
@@ -72,7 +51,7 @@ export default function HeroSection() {
               ref={descRef}
               className="text-base md:text-lg text-gray-600 mb-8 max-w-xl mx-auto md:mx-0 leading-relaxed font-medium"
             >
-              Wear stunning outfits at just 25% of the retail price. Rent for any occasion, zero commitment, unlimited style.
+              Find an outfit for your next occasion, check availability for your dates, and book securely online.
             </p>
             
             <div 
@@ -92,16 +71,16 @@ export default function HeroSection() {
           <div className="relative w-full max-w-[500px] mx-auto h-[350px] sm:h-[400px] md:h-[450px] lg:h-[550px] mt-8 md:mt-0" ref={imageRef}>
             <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-400 rounded-[32px] blur-3xl opacity-30 mix-blend-multiply"></div>
             <img 
-              src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=600&h=800&fit=crop&q=80" 
+              src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"
               alt="Premium Fashion Rental - WardroWave"
               className="relative w-full h-full object-cover rounded-[32px] shadow-2xl z-10"
               loading="eager"
             />
             {/* Floating price badge */}
             <div className="absolute bottom-6 left-[-10px] md:bottom-10 md:left-[-30px] z-20 glass rounded-2xl px-5 md:px-6 py-3 md:py-4 shadow-xl float-badge border border-white/60">
-              <p className="text-[10px] md:text-xs text-gray-800 font-bold uppercase tracking-wider mb-0.5 md:mb-1">Rent from just</p>
-              <p className="text-2xl md:text-3xl font-black text-gradient">₹299/day</p>
-              <p className="text-[10px] md:text-xs text-gray-500 font-medium mt-0.5 md:mt-1">vs ₹3,000+ retail price</p>
+              <p className="text-[10px] md:text-xs text-gray-800 font-bold uppercase tracking-wider mb-0.5 md:mb-1">Choose your dates</p>
+              <p className="text-2xl md:text-3xl font-black text-gradient">Check availability</p>
+              <p className="text-[10px] md:text-xs text-gray-500 font-medium mt-0.5 md:mt-1">View the quote before booking</p>
             </div>
           </div>
           

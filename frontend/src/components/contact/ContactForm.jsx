@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send } from 'lucide-react';
+import api from '../../lib/api/api';
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -11,6 +12,8 @@ export default function ContactForm() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -18,15 +21,26 @@ export default function ContactForm() {
       ...prev,
       [name]: value
     }));
+    setSubmitted(false);
+    setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    setSubmitted(true);
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-    
-    setTimeout(() => setSubmitted(false), 5000);
+    setLoading(true);
+    setError('');
+    try {
+      await api.contact.submit({
+        ...formData,
+        ...(formData.phone.trim() ? { phone: formData.phone.trim() } : {}),
+      });
+      setSubmitted(true);
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    } catch (submitError) {
+      setError(submitError.message || 'Could not send your message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,8 +48,13 @@ export default function ContactForm() {
       <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Send us a Message</h2>
       
       {submitted && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div role="status" className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-green-800 font-semibold">✓ Thank you for your message! We'll get back to you soon.</p>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 font-semibold">{error}</p>
         </div>
       )}
 
@@ -51,6 +70,8 @@ export default function ContactForm() {
             value={formData.name}
             onChange={handleChange}
             required
+            maxLength={120}
+            disabled={loading}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition"
             placeholder="Your name"
           />
@@ -67,6 +88,8 @@ export default function ContactForm() {
             value={formData.email}
             onChange={handleChange}
             required
+            maxLength={254}
+            disabled={loading}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition"
             placeholder="your@email.com"
           />
@@ -82,6 +105,8 @@ export default function ContactForm() {
             name="phone"
             value={formData.phone}
             onChange={handleChange}
+            maxLength={20}
+            disabled={loading}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition"
             placeholder="+91 9876543210"
           />
@@ -98,6 +123,8 @@ export default function ContactForm() {
             value={formData.subject}
             onChange={handleChange}
             required
+            maxLength={160}
+            disabled={loading}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition"
             placeholder="How can we help?"
           />
@@ -113,6 +140,8 @@ export default function ContactForm() {
             value={formData.message}
             onChange={handleChange}
             required
+            maxLength={5000}
+            disabled={loading}
             rows="5"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 transition resize-none"
             placeholder="Tell us more about your inquiry..."
@@ -121,10 +150,11 @@ export default function ContactForm() {
 
         <button
           type="submit"
+          disabled={loading}
           className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:shadow-lg transition flex items-center justify-center gap-2 mt-6"
         >
           <Send className="w-5 h-5" />
-          Send Message
+          {loading ? 'Sending...' : 'Send Message'}
         </button>
       </form>
     </div>

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import api from '../utils/api';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api, { mapCatalogProduct } from '../utils/api';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 
@@ -7,26 +7,36 @@ const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const [wishlist, setWishlist] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const { isAuthenticated } = useAuth();
+
+  const fetchWishlist = useCallback(async () => {
+    try {
+      setError('');
+      const res = await api.wishlist.get();
+      const rawProducts = res?.data?.products || res?.data?.items || [];
+      const mappedItems = rawProducts.map((item) => mapCatalogProduct(item));
+      setWishlist(mappedItems);
+      return true;
+    } catch (err) {
+      setError(err.message || 'Could not load your wishlist.');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
+      setIsLoading(true);
       fetchWishlist();
     } else {
       setWishlist([]);
+      setError('');
+      setIsLoading(false);
     }
-  }, [isAuthenticated]);
-
-  const fetchWishlist = async () => {
-    try {
-      const res = await api.wishlist.get();
-      // map productId to id for frontend compatibility
-      const mappedItems = (res.data.items || []).map(item => ({ ...item, id: item.productId }));
-      setWishlist(mappedItems);
-    } catch (err) {
-      console.error('Failed to fetch wishlist', err);
-    }
-  };
+  }, [isAuthenticated, fetchWishlist]);
 
   const addToWishlist = async (item) => {
     if (!isAuthenticated) {
@@ -41,9 +51,10 @@ export function WishlistProvider({ children }) {
 
     try {
       await api.wishlist.add(item.id);
+      toast.success('Added to your wishlist');
     } catch (err) {
-      console.error(err);
-      fetchWishlist(); // Revert on failure
+      toast.error(err.message || 'Could not add this item to your wishlist.');
+      await fetchWishlist();
     }
   };
 
@@ -55,8 +66,8 @@ export function WishlistProvider({ children }) {
     try {
       await api.wishlist.remove(itemId);
     } catch (err) {
-      console.error(err);
-      fetchWishlist(); // Revert on failure
+      toast.error(err.message || 'Could not remove this item from your wishlist.');
+      await fetchWishlist();
     }
   };
 
@@ -70,17 +81,18 @@ export function WishlistProvider({ children }) {
       return;
     }
 
-    if (isInWishlist(item.id)) {
+    const shouldAdd = !isInWishlist(item.id);
+    if (!shouldAdd) {
       setWishlist(prev => prev.filter(i => i.id !== item.id));
     } else {
       setWishlist(prev => [...prev, { ...item, id: item.id }]);
     }
 
     try {
-      await api.wishlist.toggle(item.id);
+      await api.wishlist.toggle(item.id, shouldAdd);
     } catch (err) {
-      console.error(err);
-      fetchWishlist(); // Revert on failure
+      toast.error(err.message || 'Could not update your wishlist.');
+      await fetchWishlist();
     }
   };
 
@@ -88,16 +100,19 @@ export function WishlistProvider({ children }) {
     if (!isAuthenticated) return;
     setWishlist([]);
     try {
-      await api.wishlist.clear();
+      await api.wishlist.clear(wishlist.map((item) => item.id));
     } catch (err) {
-      console.error(err);
-      fetchWishlist(); // Revert on failure
+      toast.error(err.message || 'Could not clear your wishlist.');
+      await fetchWishlist();
     }
   };
 
   return (
     <WishlistContext.Provider value={{
       wishlist,
+      isLoading,
+      error,
+      refreshWishlist: fetchWishlist,
       addToWishlist,
       removeFromWishlist,
       isInWishlist,

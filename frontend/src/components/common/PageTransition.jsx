@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -18,14 +17,9 @@ export default function PageTransition({ children, className = '' }) {
   }, { scope: container });
 
   return (
-    <motion.div
-      ref={container}
-      className={className}
-      initial={{ opacity: 1 }} // Prevent conflict with GSAP
-      exit={{ opacity: 0, transition: { duration: 0.2 } }} // Handled strictly by framer-motion AnimatePresence for routing
-    >
+    <div ref={container} className={className}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 

@@ -4,38 +4,38 @@ export default function WhyChooseSection() {
   const features = [
     { 
       icon: Sparkles,
-      title: 'Authentic Collections', 
-      description: 'Hand-picked by professional stylists to blend traditional heritage with modern trends.',
+      title: 'Live Catalog', 
+      description: 'Browse published rental products and review their descriptions, images, and size options.',
       delay: '0.1s'
     },
     { 
       icon: Heart,
-      title: 'Elite Affordability', 
-      description: 'Experience ₹20,000+ luxury outfits for a fraction of the price, starting at just 5%.',
+      title: 'Date Availability', 
+      description: 'Choose a size and rental dates to check current inventory before adding an item to your cart.',
       delay: '0.2s'
     },
     { 
       icon: ShieldCheck,
-      title: 'Diamond Protection', 
-      description: 'Your rentals are fully insured and undergo high-grade industrial sanitization.',
+      title: 'Clear Quote', 
+      description: 'Review rental charges, applicable discounts, delivery fees, taxes, and deposits before checkout.',
       delay: '0.3s'
     },
     { 
       icon: Zap,
-      title: 'Seamless Logic', 
-      description: 'One-click checkout, instant sizing AI, and dedicated doorstep pickup.',
+      title: 'Hosted Payment', 
+      description: 'Pay through Razorpay Checkout; the backend verifies the payment before confirming a booking.',
       delay: '0.4s'
     },
     { 
       icon: Headphones,
-      title: 'Concierge Support', 
-      description: '24/7 fashion assistants ready to help you style your look or manage your orders.',
+      title: 'Booking History', 
+      description: 'View your bookings and download invoices from your account.',
       delay: '0.5s'
     },
     { 
       icon: Recycle,
-      title: 'Surgical Eco-Focus', 
-      description: 'Each rental reduces the fashion industry carbon footprint by up to 80% per wear.',
+      title: 'Customer Support', 
+      description: 'Send a support request through the contact form and receive a confirmation that it was queued.',
       delay: '0.6s'
     }
   ];

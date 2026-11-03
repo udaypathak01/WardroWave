@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
-  User, Mail, Phone, Calendar, Edit2, Save, X, LogOut, ArrowLeft, CheckCircle, AlertCircle, ShoppingBag, MapPin, Sparkles
+  User, Mail, Phone, Calendar, Edit2, Save, X, LogOut, ArrowLeft, CheckCircle, AlertCircle, ShoppingBag, MapPin, Images
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context api/AuthContext";
@@ -12,16 +12,15 @@ import GSAPReveal from "../components/animations/GSAPReveal";
 // Phase 3 Profile Sub-components
 import OrderHistory from '../components/profile/OrderHistory';
 import AddressManagement from '../components/profile/AddressManagement';
-import VirtualCloset from '../components/profile/VirtualCloset';
 
-export default function UserProfile() {
+export default function UserProfile({ initialTab = 'profile' }) {
   const navigate = useNavigate();
   const { user, logout, updateProfile } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
-    fullName: user?.fullName || "",
+    fullName: user?.name || user?.fullName || "",
     phone: user?.phone || "",
   });
   const [error, setError] = useState("");
@@ -67,11 +66,8 @@ export default function UserProfile() {
 
     setLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      updateProfile({
-        fullName: editData.fullName,
-        phone: editData.phone,
-      });
+      const phone = editData.phone.startsWith('+') ? editData.phone : `+91${editData.phone.replace(/\D/g, '').replace(/^91/, '')}`;
+      await updateProfile({ name: editData.fullName, phone });
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
       setTimeout(() => setSuccess(""), 3000);
@@ -120,11 +116,11 @@ export default function UserProfile() {
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 sm:px-8 py-8 flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 bg-white rounded-full flex justify-center items-center text-4xl font-black text-purple-600 shadow-xl border-4 border-white/30 backdrop-blur-sm">
-                  {user.fullName?.charAt(0).toUpperCase()}
+                  {(user.name || user.fullName || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <h1 className="text-3xl font-black text-white drop-shadow-sm">
-                    {user.fullName}
+                    {user.name || user.fullName}
                   </h1>
                   <p className="text-purple-100 font-medium opacity-90">{user.email}</p>
                 </div>
@@ -149,11 +145,11 @@ export default function UserProfile() {
               { id: 'profile', icon: User, label: 'Account Details' },
               { id: 'orders', icon: ShoppingBag, label: 'Order History' },
               { id: 'addresses', icon: MapPin, label: 'Delivery Addresses' },
-              { id: 'closet', icon: Sparkles, label: 'Virtual Closet' },
+              { id: 'wardrobe', icon: Images, label: 'My Wardrobe', href: '/wardrobe' },
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => tab.href ? navigate(tab.href) : setActiveTab(tab.id)}
                 className={`flex items-center gap-3 px-5 py-4 rounded-xl font-bold transition-all text-left w-full ${activeTab === tab.id
                   ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 translate-x-2'
                   : 'bg-white text-gray-600 hover:bg-purple-50 hover:text-purple-700 hover:translate-x-1 border border-gray-100 shadow-sm'
@@ -245,7 +241,7 @@ export default function UserProfile() {
                           <button type="submit" disabled={loading} className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3.5 rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 transition font-bold disabled:opacity-50">
                             <Save className="w-5 h-5" /> {loading ? "Updating..." : "Save Changes"}
                           </button>
-                          <button type="button" onClick={() => { setIsEditing(false); setEditData({ fullName: user.fullName, phone: user.phone || "" }); setError(""); }} className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-gray-700 px-6 py-3.5 rounded-xl hover:bg-slate-200 transition font-bold border border-slate-200">
+                          <button type="button" onClick={() => { setIsEditing(false); setEditData({ fullName: user.name || user.fullName || '', phone: user.phone || "" }); setError(""); }} className="flex-1 flex items-center justify-center gap-2 bg-slate-100 text-gray-700 px-6 py-3.5 rounded-xl hover:bg-slate-200 transition font-bold border border-slate-200">
                             <X className="w-5 h-5" /> Cancel
                           </button>
                         </div>
@@ -257,12 +253,6 @@ export default function UserProfile() {
 
               {activeTab === 'orders' && <OrderHistory />}
               {activeTab === 'addresses' && <AddressManagement />}
-
-              {activeTab === 'closet' && (
-
-                <VirtualCloset />
-
-              )}
             </GSAPTabTransition>
           </div>
         </div>

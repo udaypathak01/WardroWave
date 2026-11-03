@@ -1,25 +1,25 @@
-import { Users, Globe, Truck, Sparkles, ShieldCheck, Heart } from 'lucide-react';
+import { Users, Globe, ShieldCheck } from 'lucide-react';
 
 export default function ValuesCards() {
   const values = [
     {
       icon: Users,
-      title: 'Vibrant Community',
-      description: 'We believe in building a space where fashion enthusiasts share their personal style and inspire each other.',
+      title: 'Style for Occasions',
+      description: 'Browse rental pieces for different occasions and choose what suits your plans.',
       color: 'bg-purple-100 text-purple-600',
       delay: '0.1s'
     },
     {
       icon: Globe,
-      title: 'Circular Fashion',
-      description: "Dedicated to reducing waste by extending the lifespan of every garment through high-quality rental care.",
+      title: 'Considered Choices',
+      description: 'Renting gives each selected piece another opportunity to be worn.',
       color: 'bg-pink-100 text-pink-600',
       delay: '0.2s'
     },
     {
       icon: ShieldCheck,
-      title: 'Elite Quality',
-      description: 'Every piece is sanitized, inspected, and guaranteed to arrive in showroom condition at your doorstep.',
+      title: 'Clear Booking Details',
+      description: 'Check product information, size options, rental dates, and a server-calculated quote before checkout.',
       color: 'bg-purple-100 text-purple-600',
       delay: '0.3s'
     }
@@ -32,7 +32,7 @@ export default function ValuesCards() {
           The <span className="text-gradient">Principles</span> We Live By
         </h2>
         <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
-          More than just a rental service, we are a platform built on trust, quality, and a shared passion for responsible luxury.
+          A straightforward rental experience built around clear product details and booking information.
         </p>
       </div>
 

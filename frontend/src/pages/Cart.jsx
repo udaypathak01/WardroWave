@@ -1,5 +1,4 @@
-import { ShoppingCart, Trash2, Plus, Minus, ShoppingBag, ArrowRight, Calendar } from 'lucide-react';
-import { useEffect } from 'react';
+import { ShoppingCart, Trash2, ShoppingBag, ArrowRight, Calendar } from 'lucide-react';
 import { useCart } from '../context api/CartContext';
 
 import Header from '../components/common/Header';
@@ -7,8 +6,11 @@ import Footer from '../components/common/Footer';
 import { useNavigate } from 'react-router-dom';
 
 function CartItem({ item }) {
-  const { updateQuantity, updateRentalDays, removeFromCart } = useCart();
-  const itemTotal = item.rentalPrice * item.quantity * (item.rentalDays / (item.duration || 3));
+  const { updateRentalDays, removeFromCart } = useCart();
+  const itemTotal = item.rentalPrice + (item.extraDayPrice || 0) * Math.max(0, item.rentalDays - (item.minRentalDays || 3));
+  const minDays = item.minRentalDays || 3;
+  const maxDays = item.maxRentalDays || 14;
+  const rentalOptions = [...new Set([minDays, Math.min(minDays + 2, maxDays), Math.min(minDays + 4, maxDays), maxDays])];
 
   return (
     <div className="bg-white rounded-lg shadow-md p-3 sm:p-6 flex flex-col md:flex-row gap-3 sm:gap-4">
@@ -26,7 +28,12 @@ function CartItem({ item }) {
         <div className="flex justify-between items-start mb-2">
           <div>
             <h3 className="font-bold text-gray-900 text-lg">{item.name}</h3>
-            <p className="text-sm text-gray-600 capitalize">Category: {item.category}</p>
+            {item.category && (
+              <p className="text-sm text-gray-600 capitalize">Category: {item.category}</p>
+            )}
+            <p className="text-sm text-gray-600">
+              {item.startDate} – {item.endDate}
+            </p>
           </div>
           <button
             onClick={() => removeFromCart(item.id)}
@@ -38,25 +45,7 @@ function CartItem({ item }) {
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center gap-4 mt-4">
-          {/* Quantity */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">Quantity:</span>
-            <div className="flex items-center gap-2 border border-gray-300 rounded-lg">
-              <button
-                onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                className="p-1 sm:p-2 hover:bg-gray-100 transition"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="px-4 font-bold">{item.quantity}</span>
-              <button
-                onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                className="p-1 sm:p-2 hover:bg-gray-100 transition"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <div className="text-sm text-gray-600">Size: <span className="font-semibold text-gray-900">{item.size}</span></div>
 
           {/* Rental Days */}
           <div className="flex items-center gap-3">
@@ -66,11 +55,7 @@ function CartItem({ item }) {
               onChange={(e) => updateRentalDays(item.id, parseInt(e.target.value))}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 text-sm"
             >
-              <option value={3}>3 Days</option>
-              <option value={5}>5 Days</option>
-              <option value={7}>7 Days</option>
-              <option value={10}>10 Days</option>
-              <option value={15}>15 Days</option>
+              {rentalOptions.map((days) => <option key={days} value={days}>{days} Days</option>)}
             </select>
           </div>
 
@@ -86,16 +71,9 @@ function CartItem({ item }) {
 }
 
 export default function Cart() {
-  const { cart, clearCart, getCartTotal } = useCart();
+  const { cart, clearCart, error, getCartTotal, isLoading, refreshCart } = useCart();
   const navigate = useNavigate();
   const total = getCartTotal();
-  const tax = total * 0.18; // 18% GST
-  const deliveryFee = cart.length > 0 ? 99 : 0;
-  const grandTotal = total + tax + deliveryFee;
-
-  useEffect(() => {
-
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -116,7 +94,16 @@ export default function Cart() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
-        {cart.length > 0 ? (
+        {isLoading ? (
+          <div role="status" className="rounded-lg bg-white py-16 text-center text-gray-600">
+            Loading your cart…
+          </div>
+        ) : error ? (
+          <div role="alert" className="rounded-lg bg-white py-16 text-center text-gray-700">
+            <p className="mb-4">{error}</p>
+            <button onClick={refreshCart} className="font-semibold text-purple-600 underline">Retry</button>
+          </div>
+        ) : cart.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
@@ -143,21 +130,14 @@ export default function Cart() {
                 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
+                    <span>Rental subtotal</span>
                     <span className="font-medium">₹{Math.round(total)}</span>
                   </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>GST (18%)</span>
-                    <span className="font-medium">₹{Math.round(tax)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Delivery Fee</span>
-                    <span className="font-medium">₹{deliveryFee}</span>
-                  </div>
                   <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
-                    <span>Total</span>
-                    <span className="text-purple-600">₹{Math.round(grandTotal)}</span>
+                    <span>Subtotal</span>
+                    <span className="text-purple-600">₹{Math.round(total)}</span>
                   </div>
+                  <p className="text-xs text-gray-500">Taxes, delivery, and security deposit are calculated at checkout.</p>
                 </div>
 
                 <button 

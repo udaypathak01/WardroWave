@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Plus, Trash2, Edit2, Home, Briefcase, Star, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context api/AuthContext';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 export default function AddressManagement() {
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [addresses, setAddresses] = useState(user?.addresses || []);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,25 +23,23 @@ export default function AddressManagement() {
     isDefault: false
   });
 
-  const fetchAddresses = async () => {
+  const fetchAddresses = useCallback(async () => {
     try {
       setLoading(true);
       const res = await api.user.getAddresses();
-      const fetched = res.data?.addresses || [];
+      const fetched = Array.isArray(res.data) ? res.data : [];
       setAddresses(fetched);
-      if (updateProfile) updateProfile({ addresses: fetched }); // sync context
-    } catch (err) {
-      // Intentionally ignore failure if we already have context fallback.
-      if (addresses.length === 0) toast.error('Failed to load saved addresses');
+    } catch {
+      toast.error('Failed to load saved addresses');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // We already have user.addresses initially, but we fetch to ensure sync in background
     fetchAddresses();
-  }, []);
+  }, [fetchAddresses]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -76,7 +74,7 @@ export default function AddressManagement() {
       await api.user.deleteAddress(id);
       toast.success('Address removed');
       fetchAddresses();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete address');
     }
   };

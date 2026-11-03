@@ -1,0 +1,1733 @@
+openapi: 3.0.3
+info:
+  title: WardroWave Rental API
+  version: 1.0.0
+  description: >-
+    API for browsing, quoting, and booking fashion rentals. JSON success
+    responses use { success: true, data, meta? }; JSON errors use
+    { success: false, error: { code, message, details? } }. Request correlation
+    is provided by the X-Request-Id response header.
+servers:
+  - url: /api/v1
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Contact
+  - name: Catalog
+  - name: Cart
+  - name: Bookings
+  - name: Payments
+  - name: Webhooks
+  - name: Users
+  - name: Staff
+  - name: Admin
+paths:
+  /contact:
+    post:
+      tags: [Contact]
+      summary: Submit a message to customer support
+      description: Queues the validated message for delivery through the email outbox.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactMessageRequest'
+      responses:
+        '202':
+          description: Message accepted for delivery.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [accepted]
+                        properties:
+                          accepted: { type: boolean, enum: [true] }
+        '400':
+          description: Contact message validation failed.
+        '429':
+          description: Contact submission rate limit exceeded.
+  /categories:
+    get:
+      tags: [Catalog]
+      summary: List active categories
+      responses:
+        '200':
+          description: Active category tree.
+  /products:
+    get:
+      tags: [Catalog]
+      summary: Search published rental products
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: occasion
+          schema: { type: string }
+        - in: query
+          name: gender
+          schema: { type: string, enum: [women, men, unisex, kids] }
+        - in: query
+          name: size
+          schema: { type: string }
+        - in: query
+          name: color
+          schema: { type: string }
+        - in: query
+          name: brand
+          schema: { type: string }
+        - in: query
+          name: minPrice
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: maxPrice
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: available
+          schema: { type: boolean }
+        - in: query
+          name: startDate
+          schema: { type: string, format: date }
+        - in: query
+          name: endDate
+          schema: { type: string, format: date }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [newest, price_asc, price_desc, popular, rating] }
+      responses:
+        '200':
+          description: Product cards, facet counts and pagination metadata.
+  /products/featured:
+    get:
+      tags: [Catalog]
+      summary: List featured products
+      responses:
+        '200':
+          description: Featured product cards.
+  /products/{slug}:
+    get:
+      tags: [Catalog]
+      summary: Get a product by slug
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product detail, variants, size chart and rating summary.
+        '404':
+          description: Product not found.
+  /products/{slug}/availability:
+    get:
+      tags: [Catalog]
+      summary: Get blocked dates and optional availability for a product variant
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: variantId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: startDate
+          schema: { type: string, format: date }
+        - in: query
+          name: endDate
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Blocked calendar ranges and optional free-unit count.
+  /products/{slug}/reviews:
+    get:
+      tags: [Catalog]
+      summary: List approved product reviews
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reviews with rating histogram and fit-feedback summary.
+  /products/{slug}/similar:
+    get:
+      tags: [Catalog]
+      summary: List similar products
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Published products from the same category and occasions.
+  /pincodes/{pincode}/serviceable:
+    get:
+      tags: [Catalog]
+      summary: Check delivery serviceability
+      parameters:
+        - in: path
+          name: pincode
+          required: true
+          schema: { type: string, pattern: '^[0-9]{6}$' }
+      responses:
+        '200':
+          description: Serviceability and estimated delivery time.
+  /health:
+    servers:
+      - url: /
+    get:
+      tags: [Health]
+      summary: Check process liveness
+      responses:
+        '200':
+          description: Process liveness in the standard success envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiSuccessEnvelope'
+  /health/ready:
+    servers:
+      - url: /
+    get:
+      tags: [Health]
+      summary: Check database readiness
+      responses:
+        '200':
+          description: MongoDB is available in the standard success envelope.
+        '503':
+          description: MongoDB is unavailable in the standard error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorEnvelope'
+  /meta/config:
+    servers:
+      - url: /
+    get:
+      tags: [Health]
+      summary: Get public storefront configuration
+      responses:
+        '200':
+          description: Public rental settings and payment configuration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RentalStorefrontConfig'
+  /api/v1/meta/config:
+    servers:
+      - url: /
+    get:
+      tags: [Health]
+      summary: Get public storefront configuration
+      responses:
+        '200':
+          description: Public rental settings and payment configuration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RentalStorefrontConfig'
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Get the authenticated user's cart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cart items and coupon.
+    delete:
+      tags: [Cart]
+      summary: Clear the authenticated user's cart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cart cleared.
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Add a rental variant and date range to the cart
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Cart updated.
+  /cart/items/{itemId}:
+    delete:
+      tags: [Cart]
+      summary: Remove a cart item
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Cart updated.
+  /cart/coupon:
+    patch:
+      tags: [Cart]
+      summary: Apply or remove a coupon code
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cart coupon updated.
+  /wishlist:
+    get:
+      tags: [Users]
+      summary: Get the authenticated user's wishlist
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Wishlist products.
+  /wishlist/{productId}:
+    post:
+      tags: [Users]
+      summary: Add a product to the wishlist
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Wishlist updated.
+    delete:
+      tags: [Users]
+      summary: Remove a product from the wishlist
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Wishlist updated.
+  /auth/sync:
+    post:
+      tags: [Authentication]
+      summary: Synchronize a Firebase identity authenticated with a valid ID token
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                phone: { type: string, pattern: '^\\+91[0-9]{10}$' }
+      responses:
+        '200':
+          description: User profile synchronized.
+        '403':
+          description: The account is blocked.
+        '410':
+          description: The account has been deleted.
+  /catalog/products:
+    get:
+      tags: [Catalog]
+      summary: List published products
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Product list and pagination metadata.
+  /catalog/prerender/products:
+    get:
+      tags: [Catalog]
+      summary: List bounded published product details for static storefront builds
+      description: This public, paginated endpoint includes variants and does not increment product views.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+      responses:
+        '200':
+          description: Published product details and variants with pagination metadata.
+  /catalog/categories:
+    get:
+      tags: [Catalog]
+      summary: List active product categories
+      responses:
+        '200':
+          description: Active categories for catalog navigation.
+  /catalog/products/{slug}:
+    get:
+      tags: [Catalog]
+      summary: Get a published product
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product details.
+        '404':
+          description: Product not found.
+  /catalog/products/{productId}/reviews:
+    get:
+      tags: [Catalog]
+      summary: List approved product reviews
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Approved reviews and pagination metadata.
+    post:
+      tags: [Catalog]
+      summary: Review a product rented in a completed booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [bookingId, rating, title, comment]
+              properties:
+                bookingId: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                title: { type: string }
+                comment: { type: string }
+                fitFeedback: { type: string }
+                images:
+                  type: array
+                  maxItems: 3
+                  items: { type: string, format: binary }
+      responses:
+        '201':
+          description: Review submitted for moderation.
+  /users/me/avatar:
+    post:
+      tags: [Users]
+      summary: Replace the authenticated user's avatar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [avatar]
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar uploaded and profile updated.
+        '400':
+          description: File type, content, or size is invalid.
+  /users/me/wardrobe:
+    get:
+      tags: [Users]
+      summary: List the authenticated user's wardrobe images
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The user's uploaded wardrobe images, newest first.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WardrobeImage'
+    post:
+      tags: [Users]
+      summary: Upload an image to the authenticated user's wardrobe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, or WebP; maximum size 5 MiB.
+      responses:
+        '201':
+          description: Wardrobe image uploaded and saved.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiSuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WardrobeImage'
+        '400':
+          description: File type, image content, or request is invalid.
+        '413':
+          description: Image exceeds the 5 MiB upload limit.
+        '429':
+          description: Upload rate limit exceeded.
+  /users/me/wardrobe/{imageId}:
+    delete:
+      tags: [Users]
+      summary: Delete an image from the authenticated user's wardrobe
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: imageId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Wardrobe image deleted.
+        '404':
+          description: Wardrobe image not found for the authenticated user.
+  /admin/products/{productId}/images:
+    post:
+      tags: [Admin]
+      summary: Upload product images
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [images]
+              properties:
+                images:
+                  type: array
+                  maxItems: 8
+                  items: { type: string, format: binary }
+      responses:
+        '200':
+          description: Images uploaded and attached to the product.
+    patch:
+      tags: [Admin]
+      summary: Reorder product images and set the primary image
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publicIds, primaryPublicId]
+              properties:
+                publicIds:
+                  type: array
+                  items: { type: string }
+                primaryPublicId:
+                  type: string
+      responses:
+        '200':
+          description: Product image order updated.
+    delete:
+      tags: [Admin]
+      summary: Remove a product image
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [publicId]
+              properties:
+                publicId: { type: string }
+      responses:
+        '200':
+          description: Product image removed and Cloudinary deletion attempted.
+  /admin/products/{productId}/upload-signature:
+    post:
+      tags: [Admin]
+      summary: Get signed parameters for direct product image upload
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Short-lived Cloudinary upload signature.
+  /cart/quote:
+    post:
+      tags: [Cart]
+      summary: Calculate a server-priced rental quote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+      responses:
+        '200':
+          description: Per-item availability and paise pricing breakdown.
+  /bookings/quote:
+    post:
+      tags: [Bookings]
+      summary: Calculate a checkout quote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequest'
+      responses:
+        '200':
+          description: Per-item availability and paise pricing breakdown.
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: List the authenticated customer's bookings
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: A page of the authenticated customer's bookings.
+    post:
+      tags: [Bookings]
+      summary: Create a booking and place rental holds
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [addressId]
+              properties:
+                addressId: { type: string }
+                couponCode: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [variantId, startDate, endDate]
+                    properties:
+                      variantId: { type: string }
+                      startDate: { type: string, format: date }
+                      endDate: { type: string, format: date }
+      responses:
+        '201':
+          description: Pending booking and Razorpay order.
+        '409':
+          description: Rental unit is no longer available.
+  /bookings/{id}:
+    get:
+      tags: [Bookings]
+      summary: Get an owned booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Booking details.
+        '404':
+          description: Booking not found.
+  /bookings/{id}/cancel:
+    post:
+      tags: [Bookings]
+      summary: Cancel an eligible booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Cancellation and refund result.
+  /bookings/{id}/return:
+    post:
+      tags: [Bookings]
+      summary: Request a return pickup for a delivered booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickupAt]
+              properties:
+                pickupAt: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Return pickup request recorded.
+        '409':
+          description: Booking is not in the delivered state.
+  /bookings/{id}/invoice:
+    get:
+      tags: [Bookings]
+      summary: Download a confirmed booking invoice
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Invoice PDF.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '409':
+          description: Invoice is unavailable until payment is confirmed.
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get the authenticated user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile.
+    patch:
+      tags: [Users]
+      summary: Update the authenticated user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated user profile.
+    delete:
+      tags: [Users]
+      summary: Soft-delete the authenticated user account
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account deletion confirmation.
+        '409':
+          description: Active bookings prevent account deletion.
+  /users/me/notifications:
+    get:
+      tags: [Users]
+      summary: List the authenticated user's notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - in: query
+          name: cursor
+          schema: { type: string }
+      responses:
+        '200':
+          description: Notifications and the next keyset cursor.
+  /users/me/notifications/{notificationId}/read:
+    patch:
+      tags: [Users]
+      summary: Mark an owned notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated notification.
+  /admin/users/{id}/access:
+    patch:
+      tags: [Admin]
+      summary: Change a user's role or account state
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated access and audit record. Role changes require recent authentication, superadmin role, and MFA when enabled.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+        '403':
+          description: Superadministrator access is required for role changes or administrator account status changes; MFA_REQUIRED indicates a missing second-factor claim.
+  /admin/users/{id}:
+    delete:
+      tags: [Admin]
+      summary: Anonymize a customer account
+      description: Requires recent authentication. Administrator and staff accounts must instead be disabled through the access-management flow, which requires superadmin authorization and MFA when enabled.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Account anonymized, Firebase identity removed, and audit record written.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+        '409':
+          description: Account has an active booking or is not a customer account.
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Read administrator dashboard totals
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Booking, customer, product, inventory, and review totals with recent bookings.
+  /admin/bookings:
+    get:
+      tags: [Admin]
+      summary: List bookings for administration
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Booking number search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: status, schema: { type: string } }
+        - { in: query, name: userId, schema: { type: string } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Paginated bookings with limited customer contact details.
+        '400':
+          description: Invalid filters.
+  /admin/bookings/{id}:
+    get:
+      tags: [Admin]
+      summary: Read booking details for administration
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Booking, fulfillment timeline, item, and customer details.
+        '404':
+          description: Booking not found.
+  /admin/customers:
+    get:
+      tags: [Admin]
+      summary: List customer and staff accounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Name, email, or phone search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: role, schema: { type: string, enum: [customer, staff, admin, superadmin] } }
+        - { in: query, name: status, schema: { type: string, enum: [active, blocked] } }
+      responses:
+        '200':
+          description: Paginated account list with minimal contact data.
+  /admin/customers/{id}:
+    get:
+      tags: [Admin]
+      summary: Read customer account details
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Customer contact and address data with recent bookings.
+        '404':
+          description: Customer not found.
+  /admin/products:
+    get:
+      tags: [Admin]
+      summary: List all catalog products, including drafts and archived products
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: status, schema: { type: string, enum: [draft, published, archived] } }
+        - { in: query, name: category, schema: { type: string } }
+        - { in: query, name: isFeatured, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Paginated catalog products.
+    post:
+      tags: [Admin]
+      summary: Create a rental catalog product
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Product created.
+  /admin/products/{productId}:
+    get:
+      tags: [Admin]
+      summary: Read product details, variants, and inventory totals
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: productId, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Product details and inventory counts by status.
+        '404':
+          description: Product not found.
+    patch:
+      tags: [Admin]
+      summary: Update a catalog product
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product updated.
+    delete:
+      tags: [Admin]
+      summary: Archive a catalog product
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Product archived after recent authentication.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+  /admin/products/{productId}/variants:
+    post:
+      tags: [Admin]
+      summary: Create a variant and inventory units
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Variant and physical units created.
+  /admin/categories:
+    get:
+      tags: [Admin]
+      summary: List active and inactive categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: isActive, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Paginated categories including their parent.
+    post:
+      tags: [Admin]
+      summary: Create a product category
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Category created.
+  /admin/categories/{categoryId}:
+    patch:
+      tags: [Admin]
+      summary: Update category details or parent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: categoryId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Category updated.
+  /admin/coupons:
+    get:
+      tags: [Admin]
+      summary: List coupons
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Coupon code search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: isActive, schema: { type: boolean } }
+      responses:
+        '200':
+          description: Paginated coupons.
+    post:
+      tags: [Admin]
+      summary: Create a coupon
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Coupon created.
+  /admin/coupons/{couponId}:
+    get:
+      tags: [Admin]
+      summary: Read coupon configuration and applicable catalog items
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: couponId, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Coupon details.
+        '404':
+          description: Coupon not found.
+    patch:
+      tags: [Admin]
+      summary: Update coupon usage or availability configuration
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: couponId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Coupon updated.
+  /admin/uploads/catalog-signature:
+    post:
+      tags: [Admin]
+      summary: Sign a direct catalog image upload
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Short-lived Cloudinary upload parameters.
+  /admin/settings:
+    get:
+      tags: [Admin]
+      summary: Read effective rental settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Effective runtime settings.
+    patch:
+      tags: [Admin]
+      summary: Update runtime rental settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Updated settings. Requires recent authentication, superadmin role, and MFA when enabled.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+        '403':
+          description: Superadministrator access is required; MFA_REQUIRED is returned if MFA is enabled and no second factor was used.
+  /admin/pincodes/{pincode}:
+    put:
+      tags: [Admin]
+      summary: Create or update a serviceable delivery pincode
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pincode
+          required: true
+          schema: { type: string, pattern: '^\d{6}$' }
+      responses:
+        '200':
+          description: Delivery pincode updated.
+  /admin/reports/summary:
+    get:
+      tags: [Admin]
+      summary: Read a date-bounded operations summary
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Booking, payment, refund, and inventory totals.
+  /admin/reviews/{reviewId}/moderation:
+    patch:
+      tags: [Admin]
+      summary: Approve or reject a product review
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Moderated review and updated product rating.
+  /admin/reviews:
+    get:
+      tags: [Admin]
+      summary: List reviews for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Review title/comment search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected], default: pending } }
+      responses:
+        '200':
+          description: Paginated reviews with customer and product summaries.
+  /admin/inventory:
+    get:
+      tags: [Admin]
+      summary: List physical inventory units
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Unit code search, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: status, schema: { type: string, enum: [available, reserved, rented, cleaning, maintenance, retired] } }
+        - { in: query, name: productId, schema: { type: string } }
+        - { in: query, name: variantId, schema: { type: string } }
+      responses:
+        '200':
+          description: Paginated inventory units with product and variant summaries.
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Search the administrator and staff audit trail
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: action, schema: { type: string, maxLength: 120 } }
+        - { in: query, name: entityType, schema: { type: string, maxLength: 80 } }
+        - { in: query, name: actorId, schema: { type: string } }
+      responses:
+        '200':
+          description: Paginated audit entries with actor summaries.
+        '400':
+          description: Invalid filters.
+  /admin/payments:
+    get:
+      tags: [Admin]
+      summary: List payment and refund records
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { in: query, name: q, description: Booking number, Razorpay order ID, or payment ID, schema: { type: string, maxLength: 100 } }
+        - { in: query, name: status, schema: { type: string, enum: [created, authorized, captured, failed, refunded, partially_refunded] } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Paginated safe payment metadata, refundable balance, and refund status.
+        '400':
+          description: Invalid filters.
+  /admin/payments/{paymentId}/refunds:
+    post:
+      tags: [Admin]
+      summary: Initiate an audited goodwill refund
+      description: Requires recent authentication. Refund amounts are specified in paise and are reserved against the remaining captured balance before submission to Razorpay.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: paymentId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, notes]
+              properties:
+                amount: { type: integer, minimum: 1 }
+                notes: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Refund record and payment state after submission attempt.
+        '400':
+          description: Refund amount exceeds the remaining refundable balance.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+        '409':
+          description: Payment is not captured or has no Razorpay payment ID.
+  /staff/bookings/{id}/dispatch:
+    post:
+      tags: [Staff]
+      summary: Dispatch a confirmed booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Booking marked dispatched.
+  /staff/bookings/{id}/deliver:
+    post:
+      tags: [Staff]
+      summary: Mark a dispatched booking delivered
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Booking marked delivered.
+  /staff/bookings/{id}/receive:
+    post:
+      tags: [Staff]
+      summary: Receive a requested return into the warehouse
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Return receipt recorded.
+  /staff/bookings/{id}/inspect:
+    post:
+      tags: [Staff]
+      summary: Inspect returned items and settle the security deposit
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Inspection settlement and deposit refund result.
+        '401':
+          description: Recent authentication is required. The error code is REAUTH_REQUIRED.
+  /staff/inventory/{unitId}/clean:
+    post:
+      tags: [Staff]
+      summary: Mark a cleaning inventory unit ready
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: unitId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Inventory unit marked clean or retired.
+  /payments/verify:
+    post:
+      tags: [Payments]
+      summary: Verify and confirm a Razorpay payment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Payment confirmation result.
+  /webhooks/razorpay:
+    post:
+      tags: [Webhooks]
+      summary: Accept a signed Razorpay webhook
+      parameters:
+        - in: header
+          name: X-Razorpay-Signature
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Razorpay-Event-Id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Webhook persisted and processed, or acknowledged as a duplicate.
+        '400':
+          description: Invalid webhook signature or body.
+        '503':
+          description: Processing failed and Razorpay should retry the persisted event.
+  /catalog/products/featured:
+    get:
+      tags: [Catalog]
+      summary: List featured catalog products
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Featured product cards and pagination metadata.
+  /catalog/products/{slug}/availability:
+    get:
+      tags: [Catalog]
+      summary: Check rental availability by product slug
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: variantId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: startDate
+          schema: { type: string, format: date }
+        - in: query
+          name: endDate
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Availability for the requested period.
+  /catalog/products/{slug}/reviews:
+    get:
+      tags: [Catalog]
+      summary: List approved reviews by product slug
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Approved reviews with rating summary and pagination.
+  /catalog/products/{slug}/similar:
+    get:
+      tags: [Catalog]
+      summary: List similar products by product slug
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 20, default: 8 }
+      responses:
+        '200':
+          description: Similar published products.
+  /catalog/variants/{variantId}/availability:
+    get:
+      tags: [Catalog]
+      summary: Check variant availability for a rental date range
+      parameters:
+        - in: path
+          name: variantId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: startDate
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: endDate
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Availability status and capped count.
+  /catalog/products/{productId}/blocked-dates:
+    get:
+      tags: [Catalog]
+      summary: List blocked date ranges for a product variant
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: variantId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: fromDate
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Blocked date ranges without exposing unit identifiers.
+  /bookings/{id}/retry-payment:
+    post:
+      tags: [Bookings]
+      summary: Create a replacement payment order for an eligible booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Replacement payment order and booking details.
+        '409':
+          description: Booking cannot be retried.
+  /users/me/addresses:
+    post:
+      tags: [Users]
+      summary: Add an address to the authenticated user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, fullName, phone, line1, city, state, pincode]
+              properties:
+                label: { type: string, maxLength: 40 }
+                fullName: { type: string, maxLength: 120 }
+                phone: { type: string, pattern: '^\\+[1-9][0-9]{7,14}$' }
+                line1: { type: string, maxLength: 200 }
+                line2: { type: string, maxLength: 200 }
+                landmark: { type: string, maxLength: 200 }
+                city: { type: string, maxLength: 100 }
+                state: { type: string, maxLength: 100 }
+                pincode: { type: string, pattern: '^[0-9]{6}$' }
+                isDefault: { type: boolean }
+      responses:
+        '201':
+          description: Address added.
+  /users/me/addresses/{addressId}:
+    patch:
+      tags: [Users]
+      summary: Update an owned address
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                label: { type: string, maxLength: 40 }
+                fullName: { type: string, maxLength: 120 }
+                phone: { type: string, pattern: '^\\+[1-9][0-9]{7,14}$' }
+                line1: { type: string, maxLength: 200 }
+                line2: { type: string, maxLength: 200 }
+                landmark: { type: string, maxLength: 200 }
+                city: { type: string, maxLength: 100 }
+                state: { type: string, maxLength: 100 }
+                pincode: { type: string, pattern: '^[0-9]{6}$' }
+                isDefault: { type: boolean }
+      responses:
+        '200':
+          description: Address updated.
+    delete:
+      tags: [Users]
+      summary: Delete an owned address
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Address deleted.
+  /admin/inventory/{unitId}/status:
+    patch:
+      tags: [Admin]
+      summary: Change an inventory unit's operational status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: unitId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [available, maintenance, retired]
+      responses:
+        '200':
+          description: Inventory unit status updated.
+        '401':
+          description: Retiring a unit requires recent authentication. The error code is REAUTH_REQUIRED.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+  schemas:
+    RentalStorefrontConfig:
+      type: object
+      required:
+        - minRentalDays
+        - maxRentalDays
+        - minLeadDays
+        - maxAdvanceDays
+        - gstPercent
+        - deliveryFee
+        - freeDeliveryAbove
+        - freeCancelHours
+        - cancellationPolicy
+        - razorpayKeyId
+        - supportEmail
+      properties:
+        minRentalDays: { type: integer, minimum: 1 }
+        maxRentalDays: { type: integer, minimum: 1 }
+        minLeadDays: { type: integer, minimum: 0 }
+        maxAdvanceDays: { type: integer, minimum: 1 }
+        gstPercent: { type: number, minimum: 0 }
+        deliveryFee: { type: integer, minimum: 0 }
+        freeDeliveryAbove: { type: integer, minimum: 0 }
+        freeCancelHours: { type: integer, minimum: 0 }
+        cancellationPolicy: { type: string }
+        razorpayKeyId: { type: string, nullable: true }
+        supportEmail: { type: string, format: email }
+    ContactMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, subject, message]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        email: { type: string, format: email, maxLength: 254 }
+        phone: { type: string, maxLength: 20 }
+        subject: { type: string, minLength: 1, maxLength: 160 }
+        message: { type: string, minLength: 1, maxLength: 5000 }
+    WardrobeImage:
+      type: object
+      required: [_id, url, width, height, bytes, format, createdAt]
+      properties:
+        _id: { type: string }
+        url: { type: string, format: uri }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        bytes: { type: integer, minimum: 1 }
+        format: { type: string, enum: [jpeg, png, webp] }
+        createdAt: { type: string, format: date-time }
+    ApiSuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data: {}
+        meta:
+          type: object
+          additionalProperties: true
+    ApiErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/ValidationIssue'
+                - type: object
+                  additionalProperties: true
+    ValidationIssue:
+      type: object
+      required: [path, message]
+      properties:
+        path: { type: string }
+        message: { type: string }
+    QuoteRequest:
+      type: object
+      required: [items, pincode]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            required: [variantId, startDate, endDate]
+            properties:
+              variantId: { type: string }
+              startDate: { type: string, format: date }
+              endDate: { type: string, format: date }
+        couponCode: { type: string }
+        pincode: { type: string, pattern: '^\d{6}$' }

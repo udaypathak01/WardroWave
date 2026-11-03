@@ -1,43 +1,36 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 
 export default function InventorySearch({ searchQuery, setSearchQuery, inventory = [] }) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [isFocused, setIsFocused] = useState(false);
   const searchRef = useRef(null);
 
-  // Generate suggestions based on query
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      
-      // Get unique item names and categories that match
-      const uniqueSuggestions = new Set();
-      
-      inventory.forEach(item => {
-        if (item.name.toLowerCase().includes(query)) {
-          uniqueSuggestions.add(item.name);
-        }
-        if (item.category.toLowerCase().includes(query)) {
-          const categoryLabel = item.category.charAt(0).toUpperCase() + item.category.slice(1);
-          uniqueSuggestions.add(`Category: ${categoryLabel}`);
-        }
-      });
+  const trimmed = searchQuery.trim();
+  const suggestions = useMemo(() => {
+    if (!trimmed) return [];
+    const query = trimmed.toLowerCase();
+    const uniqueSuggestions = new Set();
+    
+    inventory.forEach(item => {
+      if (item.name?.toLowerCase().includes(query)) {
+        uniqueSuggestions.add(item.name);
+      }
+      if (item.category?.toLowerCase().includes(query)) {
+        const categoryLabel = item.category.charAt(0).toUpperCase() + item.category.slice(1);
+        uniqueSuggestions.add(`Category: ${categoryLabel}`);
+      }
+    });
 
-      // Convert set to array and limit to 6 suggestions
-      setSuggestions(Array.from(uniqueSuggestions).slice(0, 6));
-      setShowSuggestions(true);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-  }, [searchQuery, inventory]);
+    return Array.from(uniqueSuggestions).slice(0, 6);
+  }, [trimmed, inventory]);
+
+  const showDropdown = isFocused && suggestions.length > 0;
 
   // Handle click outside to close suggestions
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSuggestions(false);
+        setIsFocused(false);
       }
     };
 
@@ -46,10 +39,9 @@ export default function InventorySearch({ searchQuery, setSearchQuery, inventory
   }, []);
 
   const handleSuggestionClick = (suggestion) => {
-    // Remove "Category: " prefix if present
     const cleanSuggestion = suggestion.replace('Category: ', '');
     setSearchQuery(cleanSuggestion);
-    setShowSuggestions(false);
+    setIsFocused(false);
   };
 
   return (
@@ -61,14 +53,14 @@ export default function InventorySearch({ searchQuery, setSearchQuery, inventory
           placeholder="Search items by name or category..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onFocus={() => searchQuery && setSuggestions.length > 0 && setShowSuggestions(true)}
+          onFocus={() => setIsFocused(true)}
           className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent transition"
         />
         {searchQuery && (
           <button
             onClick={() => {
               setSearchQuery('');
-              setShowSuggestions(false);
+              setIsFocused(false);
             }}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
           >
@@ -78,7 +70,7 @@ export default function InventorySearch({ searchQuery, setSearchQuery, inventory
       </div>
 
       {/* Suggestions Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
+      {showDropdown && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
           <div className="max-h-64 overflow-y-auto">
             {suggestions.map((suggestion, index) => (
