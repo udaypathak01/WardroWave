@@ -6,9 +6,13 @@ WardroWave is a fashion rental marketplace. Customers browse published products,
 
 - `frontend/` — React 19, Vite, Firebase Authentication, Tailwind CSS, and React Router.
 - `wardrowave-backend/` — Express API, MongoDB/Mongoose, Firebase token verification, Razorpay payments, and Cloudinary uploads.
-- `api/index.js` — Vercel serverless entry point for the Express app.
+- `render.yaml` — Render Blueprint for the persistent backend web service.
 - `docs/` — deployment notes and project guides. Some older guides describe the previous Firestore backend; use `wardrowave-backend/README.md` for current API setup and behavior.
 - [`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md) — full project guide covering frontend, backend, setup, APIs, configuration, operations, testing, and deployment.
+
+## Deployment
+
+Deploy the frontend from the repository root to Vercel using `vercel.json`, and deploy the API from `render.yaml` to Render. The backend requires a MongoDB replica-set database (for example, MongoDB Atlas) and production credentials; set these as Render environment variables, never in the frontend or a committed file. See the [deployment guide](docs/PROJECT_DOCUMENTATION.md#deployment) for setup steps and required values.
 
 ## Local development
 

@@ -54,8 +54,8 @@ The backend requires MongoDB replica-set support for transactional operations. T
 | `wardrowave-backend/openapi.yaml` | OpenAPI 3.0 specification and Swagger UI source |
 | `wardrowave-backend/tests/` | Backend unit and MongoDB-backed integration tests |
 | `wardrowave-backend/scripts/` | Database setup and catalog seeding utilities |
-| `api/index.js` | Vercel serverless adapter for the Express app |
-| `vercel.json` | Frontend build, API rewrite, and SPA route fallback |
+| `render.yaml` | Render Blueprint for the persistent backend web service |
+| `vercel.json` | Frontend build and SPA route fallback |
 | `config/firestore.rules` | Firebase Firestore rules; current application persistence is MongoDB |
 | `docs/` | Project documentation |
 
@@ -199,7 +199,7 @@ When modifying theme styling, check both themes and small/touch viewports. Touch
 - Pino HTTP/application logging.
 - Jest and Supertest for tests.
 
-`src/server.js` validates configuration, connects to MongoDB, starts scheduled jobs, and listens on the configured port. It performs graceful shutdown on termination signals. `src/app.js` builds the Express application and is also imported by the Vercel adapter.
+`src/server.js` validates configuration, connects to MongoDB, starts scheduled jobs, and listens on the configured port. It performs graceful shutdown on termination signals. `src/app.js` builds the Express application.
 
 ### Backend source layers
 
@@ -429,7 +429,37 @@ Unit tests cover validation, money/pricing, dates, email, payments, security mid
 
 ### Vercel
 
-The root `vercel.json` builds `frontend/`, serves `frontend/dist`, rewrites `/api/*` to `api/index.js`, and falls back other paths to the SPA entry point. `api/index.js` lazily imports the Express app. Supply production environment variables through Vercel settings; do not rely on local `.env` files. Production backend configuration requires MongoDB connectivity and the provider credentials described above. Confirm background jobs are deployed in a runtime that remains active; serverless function lifetimes are not suitable for guaranteeing cron execution.
+Import the repository into Vercel with the **repository root** as the project root. The root `vercel.json` installs and builds `frontend/`, serves `frontend/dist`, and routes browser paths to the SPA entry point. Set these Vercel environment variables for Production (and Preview if needed):
+
+- `VITE_API_URL`: the Render service URL followed by `/api/v1` (for example, `https://<your-render-service>.onrender.com/api/v1`).
+- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID`: the Firebase web app configuration.
+
+Vite embeds these values in the browser bundle, so only Firebase web-app configuration belongs here; never put backend secrets in Vercel `VITE_` variables.
+
+### Render
+
+Create a MongoDB Atlas cluster first. Atlas databases support the replica-set transactions this API requires. Configure Atlas Network Access for Render and use a database user with a strong password.
+
+In Render, create a Blueprint from the repository using `render.yaml`, or create a Node web service manually with:
+
+- Root Directory: `wardrowave-backend`
+- Build Command: `npm ci`
+- Start Command: `npm start`
+- Health Check Path: `/health/ready`
+
+Set all values marked `sync: false` in Render's environment settings. Required production credentials include `MONGODB_URI`, the Firebase Admin group (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`), Razorpay keys and webhook secret, Cloudinary credentials, and SMTP host/user/password plus `MAIL_FROM`. Set `CORS_ORIGINS` to the exact Vercel origin (scheme and hostname only, no path or trailing slash), `FRONTEND_URL` to that same origin, and `ADMIN_EMAILS` to the verified administrator email addresses. In Render, enter the Firebase private key with newlines preserved, or use `\n` sequences; the backend normalizes escaped newlines.
+
+Use a continuously running Render instance for production: the backend runs scheduled jobs in-process, so an instance that sleeps can delay emails, payment reconciliation, and rental operations. After both services are deployed, set the Razorpay webhook URL to `https://<your-render-service>.onrender.com/api/v1/webhooks/razorpay` and verify `/health/ready` returns a successful response.
+
+### Deployment order
+
+1. Create the Vercel project to establish its public production origin.
+2. Deploy the Render Blueprint and set its MongoDB/provider credentials, `CORS_ORIGINS`, `FRONTEND_URL`, and `ADMIN_EMAILS`.
+3. Add the Render URL and Firebase web-app configuration to Vercel, then deploy the frontend.
+4. If the Vercel origin differs from the value entered in Render, update `CORS_ORIGINS` and `FRONTEND_URL` in Render and redeploy.
+5. Add the Vercel hostname to Firebase Authentication's authorized domains. Confirm catalog access, sign-in, a payment test, webhook delivery, and health checks.
+
+Never upload local `.env` files or commit credentials. Rotate any credentials that have been exposed.
 
 ### Docker backend
 
